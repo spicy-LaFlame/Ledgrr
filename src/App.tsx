@@ -12,6 +12,7 @@ import {
   Menu,
   X,
   HandCoins,
+  BookOpen,
 } from 'lucide-react';
 import Dashboard from './pages/Dashboard';
 import Projects from './pages/Projects';
@@ -21,6 +22,7 @@ import Expenses from './pages/Expenses';
 import Employees from './pages/Employees';
 import Reports from './pages/Reports';
 import Claims from './pages/Claims';
+import GeneralLedger from './pages/GeneralLedger';
 
 const navItems = [
   { path: '/', label: 'Overview', icon: LayoutDashboard },
@@ -28,6 +30,7 @@ const navItems = [
   { path: '/allocations', label: 'Allocations', icon: ClipboardList },
   { path: '/expenses', label: 'Expenses', icon: Receipt },
   { path: '/claims', label: 'Claims', icon: HandCoins },
+  { path: '/general-ledger', label: 'General Ledger', icon: BookOpen },
   { path: '/employees', label: 'Employees', icon: Users },
   { path: '/reports', label: 'Reports', icon: FileSpreadsheet },
   { path: '/settings', label: 'Settings', icon: Settings },
@@ -146,6 +149,7 @@ function AppLayout() {
           <Route path="/allocations" element={<Allocations />} />
           <Route path="/expenses" element={<Expenses />} />
           <Route path="/claims" element={<Claims />} />
+          <Route path="/general-ledger" element={<GeneralLedger />} />
           <Route path="/employees" element={<Employees />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/settings" element={<PlaceholderPage title="Settings" />} />

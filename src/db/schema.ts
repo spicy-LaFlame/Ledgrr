@@ -147,6 +147,93 @@ export interface Claim {
   updatedAt: string;
 }
 
+// =============================================================================
+// GL & PAYROLL IMPORT TYPES
+// =============================================================================
+
+export type ImportType = 'general-ledger' | 'payroll';
+export type GLLineCategory = 'salary' | 'expense' | 'unclassified';
+
+export interface ColumnMapping {
+  costCentre: string;
+  amount: string;
+  creditColumn?: string;
+  description?: string;
+  transactionDate?: string;
+  glCode?: string;
+  journalEntry?: string;
+  vendor?: string;
+  period?: string;
+  // Payroll-specific
+  employeeName?: string;
+  employeeId?: string;
+  payPeriodStart?: string;
+  payPeriodEnd?: string;
+  regularHours?: string;
+  overtimeHours?: string;
+  earnings?: string;
+  benefits?: string;
+  deductions?: string;
+  netPay?: string;
+}
+
+export interface GLAccountRule {
+  id: string;
+  glCodePattern: string;     // e.g., "50*" matches 5000, 5010, etc.
+  category: 'salary' | 'expense';
+  label?: string;            // e.g., "Salaries & Wages"
+  createdAt: string;
+}
+
+export interface ExternalImport {
+  id: string;
+  type: ImportType;
+  fileName: string;
+  fiscalYearId: string;
+  importDate: string;
+  rowCount: number;
+  columnMapping: ColumnMapping;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GLEntry {
+  id: string;
+  importId: string;
+  fiscalYearId: string;
+  costCentre: string;
+  glCode?: string;
+  amount: number;
+  description?: string;
+  transactionDate?: string;
+  journalEntry?: string;
+  vendor?: string;
+  period?: string;
+  category: GLLineCategory;
+  rawRowData?: string;
+  createdAt: string;
+}
+
+export interface PayrollEntry {
+  id: string;
+  importId: string;
+  fiscalYearId: string;
+  costCentre: string;
+  employeeName?: string;
+  employeeId?: string;
+  payPeriodStart?: string;
+  payPeriodEnd?: string;
+  regularHours?: number;
+  overtimeHours?: number;
+  earnings: number;
+  benefits?: number;
+  deductions?: number;
+  netPay?: number;
+  rawRowData?: string;
+  createdAt: string;
+}
+
 export interface SpendingAlert {
   id: string;
   projectId: string;
@@ -177,6 +264,10 @@ export class BudgetTrackerDB extends Dexie {
   expenses!: EntityTable<Expense, 'id'>;
   spendingAlerts!: EntityTable<SpendingAlert, 'id'>;
   claims!: EntityTable<Claim, 'id'>;
+  externalImports!: EntityTable<ExternalImport, 'id'>;
+  glEntries!: EntityTable<GLEntry, 'id'>;
+  payrollEntries!: EntityTable<PayrollEntry, 'id'>;
+  glAccountRules!: EntityTable<GLAccountRule, 'id'>;
 
   constructor() {
     super('BudgetTrackerDB');
@@ -299,6 +390,26 @@ export class BudgetTrackerDB extends Dexie {
       expenses: 'id, projectId, categoryId, fiscalYearId, quarterId',
       spendingAlerts: 'id, projectId, type, severity, isAcknowledged',
       claims: 'id, projectId, fiscalYearId, quarterId, status, submittedDate, receivedDate',
+    });
+
+    // Version 7: GL & payroll import with reconciliation
+    this.version(7).stores({
+      funders: 'id, code, name, isActive',
+      projects: 'id, code, name, funderId, status, isActive, costCentreNumber',
+      organizations: 'id, code',
+      employees: 'id, name, organizationId, status, isInnovationTeam',
+      employeeRates: 'id, employeeId, fiscalYearId, quarterId, [employeeId+fiscalYearId+quarterId]',
+      fiscalYears: 'id, name, isCurrent',
+      quarters: 'id, name, fiscalYearId, quarterNumber',
+      expenseCategories: 'id, sortOrder',
+      salaryAllocations: 'id, employeeId, projectId, fiscalYearId, quarterId, [employeeId+projectId+fiscalYearId+quarterId]',
+      expenses: 'id, projectId, categoryId, fiscalYearId, quarterId',
+      spendingAlerts: 'id, projectId, type, severity, isAcknowledged',
+      claims: 'id, projectId, fiscalYearId, quarterId, status, submittedDate, receivedDate',
+      externalImports: 'id, type, fiscalYearId, importDate',
+      glEntries: 'id, importId, fiscalYearId, costCentre, category, [fiscalYearId+costCentre]',
+      payrollEntries: 'id, importId, fiscalYearId, costCentre, [fiscalYearId+costCentre]',
+      glAccountRules: 'id, glCodePattern, category',
     });
   }
 }
