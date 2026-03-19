@@ -147,6 +147,34 @@ export interface Claim {
   updatedAt: string;
 }
 
+// =============================================================================
+// AI INTEGRATION TYPES
+// =============================================================================
+
+export interface AISettings {
+  id: string;            // always 'default'
+  apiKey: string;
+  model: string;
+  maxTokens: number;
+  enabled: boolean;
+}
+
+export interface DocumentChunk {
+  index: number;
+  text: string;
+  pageRange?: string;
+}
+
+export interface ProjectDocument {
+  id: string;
+  projectId: string;
+  fileName: string;
+  fileSize: number;
+  extractedText: string;
+  chunks: DocumentChunk[];
+  uploadedAt: string;
+}
+
 export interface SpendingAlert {
   id: string;
   projectId: string;
@@ -177,6 +205,8 @@ export class BudgetTrackerDB extends Dexie {
   expenses!: EntityTable<Expense, 'id'>;
   spendingAlerts!: EntityTable<SpendingAlert, 'id'>;
   claims!: EntityTable<Claim, 'id'>;
+  aiSettings!: EntityTable<AISettings, 'id'>;
+  projectDocuments!: EntityTable<ProjectDocument, 'id'>;
 
   constructor() {
     super('BudgetTrackerDB');
@@ -299,6 +329,24 @@ export class BudgetTrackerDB extends Dexie {
       expenses: 'id, projectId, categoryId, fiscalYearId, quarterId',
       spendingAlerts: 'id, projectId, type, severity, isAcknowledged',
       claims: 'id, projectId, fiscalYearId, quarterId, status, submittedDate, receivedDate',
+    });
+
+    // Version 7: AI integration tables
+    this.version(7).stores({
+      funders: 'id, code, name, isActive',
+      projects: 'id, code, name, funderId, status, isActive, costCentreNumber',
+      organizations: 'id, code',
+      employees: 'id, name, organizationId, status, isInnovationTeam',
+      employeeRates: 'id, employeeId, fiscalYearId, quarterId, [employeeId+fiscalYearId+quarterId]',
+      fiscalYears: 'id, name, isCurrent',
+      quarters: 'id, name, fiscalYearId, quarterNumber',
+      expenseCategories: 'id, sortOrder',
+      salaryAllocations: 'id, employeeId, projectId, fiscalYearId, quarterId, [employeeId+projectId+fiscalYearId+quarterId]',
+      expenses: 'id, projectId, categoryId, fiscalYearId, quarterId',
+      spendingAlerts: 'id, projectId, type, severity, isAcknowledged',
+      claims: 'id, projectId, fiscalYearId, quarterId, status, submittedDate, receivedDate',
+      aiSettings: 'id',
+      projectDocuments: 'id, projectId',
     });
   }
 }

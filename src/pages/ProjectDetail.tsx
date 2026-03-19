@@ -7,6 +7,7 @@ import { useEmployees, useEmployeeRates, calculateCost } from '../hooks/useEmplo
 import ProjectFormModal from '../components/projects/ProjectFormModal';
 import type { ProjectFormData } from '../hooks/useProjects';
 import type { PaymentMethod } from '../db/schema';
+import DocumentUpload from '../components/ai/DocumentUpload';
 
 const statusStyles: Record<string, { bg: string; text: string }> = {
   active: { bg: 'bg-emerald-100', text: 'text-emerald-700' },
@@ -523,6 +524,11 @@ const ProjectDetail: React.FC = () => {
             </table>
           </div>
         )}
+      </div>
+
+      {/* Agreement Documents (AI) */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-6">
+        <DocumentUpload projectId={project.id} />
       </div>
 
       {/* Edit Modal */}

@@ -18,6 +18,7 @@ import {
   useOrgBreakdown,
   useFundingExpiryStatus,
 } from '../hooks';
+import QueryBox from '../components/ai/QueryBox';
 import { useFiscalPeriods } from '../hooks/useAllocations';
 
 const Dashboard: React.FC = () => {
@@ -163,6 +164,11 @@ const Dashboard: React.FC = () => {
 
       {/* Funding Expiry Table */}
       <FundingExpiryTable statuses={fundingExpiry} formatCurrency={formatCurrency} />
+
+      {/* AI Query Box */}
+      <div className="mt-8">
+        <QueryBox />
+      </div>
     </div>
   );
 };
