@@ -16,6 +16,10 @@ import {
   generateQuarterlyClaimsExcel,
 } from '../utils/exportExcel';
 import { generateProjectStatusHTML } from '../components/reports/ProjectStatusPrint';
+import { useAI } from '../hooks/useAI';
+import { sanitizeProjectSummaryRows } from '../ai/sanitizer';
+import type { SafeProjectData } from '../ai/types';
+import NarrativeGenerator from '../components/ai/NarrativeGenerator';
 
 const Reports: React.FC = () => {
   const { fiscalYears, quarters, currentFiscalYear } = useFiscalPeriods();
@@ -25,6 +29,10 @@ const Reports: React.FC = () => {
   const [selectedReport, setSelectedReport] = useState<ReportType>('project-summary');
   const [isGenerating, setIsGenerating] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const { isConfigured } = useAI();
+  const [narrativeOpen, setNarrativeOpen] = useState(false);
+  const [narrativeData, setNarrativeData] = useState<SafeProjectData[]>([]);
+  const [narrativeTitle, setNarrativeTitle] = useState('');
 
   const openConfig = (type: ReportType) => {
     setSelectedReport(type);
@@ -90,6 +98,21 @@ const Reports: React.FC = () => {
     }
   };
 
+  const handleNarrative = async (type: 'project-summary' | 'project-status') => {
+    if (!currentFiscalYear) return;
+    try {
+      if (type === 'project-summary') {
+        const data = await getProjectSummaryData(currentFiscalYear.id, 'active');
+        const safe = sanitizeProjectSummaryRows(data.rows);
+        setNarrativeData(safe);
+        setNarrativeTitle(`Narrative for all active projects — FY ${currentFiscalYear.name}`);
+        setNarrativeOpen(true);
+      }
+    } catch (err) {
+      console.error('Failed to prepare narrative data:', err);
+    }
+  };
+
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       {/* Header */}
@@ -116,6 +139,7 @@ const Reports: React.FC = () => {
           description="Overview of all projects with budget vs actual spending, salary/expense breakdown, and utilization."
           format="Excel"
           onGenerate={() => openConfig('project-summary')}
+          onNarrative={isConfigured ? () => handleNarrative('project-summary') : undefined}
         />
         <ReportCard
           icon={<Users className="w-5 h-5 text-slate-600" />}
@@ -139,6 +163,14 @@ const Reports: React.FC = () => {
           onGenerate={() => openConfig('quarterly-claims')}
         />
       </div>
+
+      {/* AI Narrative Modal */}
+      <NarrativeGenerator
+        isOpen={narrativeOpen}
+        onClose={() => setNarrativeOpen(false)}
+        data={narrativeData}
+        title={narrativeTitle}
+      />
 
       {/* Config Modal */}
       <ReportConfigModal

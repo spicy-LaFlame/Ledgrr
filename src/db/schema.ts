@@ -234,6 +234,34 @@ export interface PayrollEntry {
   createdAt: string;
 }
 
+// =============================================================================
+// AI INTEGRATION TYPES
+// =============================================================================
+
+export interface AISettings {
+  id: string;            // always 'default'
+  apiKey: string;
+  model: string;
+  maxTokens: number;
+  enabled: boolean;
+}
+
+export interface DocumentChunk {
+  index: number;
+  text: string;
+  pageRange?: string;
+}
+
+export interface ProjectDocument {
+  id: string;
+  projectId: string;
+  fileName: string;
+  fileSize: number;
+  extractedText: string;
+  chunks: DocumentChunk[];
+  uploadedAt: string;
+}
+
 export interface SpendingAlert {
   id: string;
   projectId: string;
@@ -268,6 +296,8 @@ export class BudgetTrackerDB extends Dexie {
   glEntries!: EntityTable<GLEntry, 'id'>;
   payrollEntries!: EntityTable<PayrollEntry, 'id'>;
   glAccountRules!: EntityTable<GLAccountRule, 'id'>;
+  aiSettings!: EntityTable<AISettings, 'id'>;
+  projectDocuments!: EntityTable<ProjectDocument, 'id'>;
 
   constructor() {
     super('BudgetTrackerDB');
@@ -410,6 +440,28 @@ export class BudgetTrackerDB extends Dexie {
       glEntries: 'id, importId, fiscalYearId, costCentre, category, [fiscalYearId+costCentre]',
       payrollEntries: 'id, importId, fiscalYearId, costCentre, [fiscalYearId+costCentre]',
       glAccountRules: 'id, glCodePattern, category',
+    });
+
+    // Version 8: AI integration tables
+    this.version(8).stores({
+      funders: 'id, code, name, isActive',
+      projects: 'id, code, name, funderId, status, isActive, costCentreNumber',
+      organizations: 'id, code',
+      employees: 'id, name, organizationId, status, isInnovationTeam',
+      employeeRates: 'id, employeeId, fiscalYearId, quarterId, [employeeId+fiscalYearId+quarterId]',
+      fiscalYears: 'id, name, isCurrent',
+      quarters: 'id, name, fiscalYearId, quarterNumber',
+      expenseCategories: 'id, sortOrder',
+      salaryAllocations: 'id, employeeId, projectId, fiscalYearId, quarterId, [employeeId+projectId+fiscalYearId+quarterId]',
+      expenses: 'id, projectId, categoryId, fiscalYearId, quarterId',
+      spendingAlerts: 'id, projectId, type, severity, isAcknowledged',
+      claims: 'id, projectId, fiscalYearId, quarterId, status, submittedDate, receivedDate',
+      externalImports: 'id, type, fiscalYearId, importDate',
+      glEntries: 'id, importId, fiscalYearId, costCentre, category, [fiscalYearId+costCentre]',
+      payrollEntries: 'id, importId, fiscalYearId, costCentre, [fiscalYearId+costCentre]',
+      glAccountRules: 'id, glCodePattern, category',
+      aiSettings: 'id',
+      projectDocuments: 'id, projectId',
     });
   }
 }

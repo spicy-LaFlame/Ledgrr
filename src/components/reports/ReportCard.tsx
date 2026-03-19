@@ -1,4 +1,4 @@
-import { Download } from 'lucide-react';
+import { Download, Sparkles } from 'lucide-react';
 
 interface ReportCardProps {
   icon: React.ReactNode;
@@ -7,6 +7,7 @@ interface ReportCardProps {
   format: 'Excel' | 'PDF';
   onGenerate: () => void;
   isGenerating?: boolean;
+  onNarrative?: () => void;
 }
 
 const ReportCard: React.FC<ReportCardProps> = ({
@@ -16,6 +17,7 @@ const ReportCard: React.FC<ReportCardProps> = ({
   format,
   onGenerate,
   isGenerating = false,
+  onNarrative,
 }) => {
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-6">
@@ -35,14 +37,25 @@ const ReportCard: React.FC<ReportCardProps> = ({
             </span>
           </div>
           <p className="text-sm text-slate-500 mb-4">{description}</p>
-          <button
-            onClick={onGenerate}
-            disabled={isGenerating}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-xl hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Download className="w-4 h-4" />
-            {isGenerating ? 'Generating...' : 'Generate'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onGenerate}
+              disabled={isGenerating}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-xl hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Download className="w-4 h-4" />
+              {isGenerating ? 'Generating...' : 'Generate'}
+            </button>
+            {onNarrative && (
+              <button
+                onClick={onNarrative}
+                className="inline-flex items-center gap-2 px-4 py-2 text-violet-700 bg-violet-50 text-sm font-medium rounded-xl hover:bg-violet-100 transition-colors"
+              >
+                <Sparkles className="w-4 h-4" />
+                AI Narrative
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
