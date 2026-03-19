@@ -1,4 +1,4 @@
-import { db, type Funder, type Project, type Organization, type Employee, type EmployeeRate, type FiscalYear, type Quarter, type ExpenseCategory, type SalaryAllocation } from './schema';
+import { db, type Funder, type Project, type Organization, type Employee, type EmployeeRate, type FiscalYear, type Quarter, type ExpenseCategory, type SalaryAllocation, type Claim } from './schema';
 
 // =============================================================================
 // SEED DATA
@@ -533,6 +533,208 @@ const projects: Project[] = [
 // No sample allocations — real allocations will be entered manually
 const salaryAllocations: SalaryAllocation[] = [];
 
+// Claims for FY 2025-26
+const claims: Claim[] = [
+  // Row 1: Beachhead Q1 — Funds Received, $40,958.88 claimed, $50,000 received
+  {
+    id: 'claim-01',
+    projectId: 'proj-beachhead',
+    fiscalYearId: 'fy-2025-26',
+    quarterId: 'q1-2025-26',
+    claimAmount: 40958.88,
+    submittedDate: null,
+    receivedDate: null,
+    receivedAmount: 50000,
+    status: 'received',
+    createdAt: now,
+    updatedAt: now,
+  },
+  // Row 2: 8-80 Initiative Q2 — Funds Received, $187,117.73
+  {
+    id: 'claim-02',
+    projectId: 'proj-880',
+    fiscalYearId: 'fy-2025-26',
+    quarterId: 'q2-2025-26',
+    claimAmount: 187117.73,
+    submittedDate: null,
+    receivedDate: null,
+    receivedAmount: 187117.73,
+    status: 'received',
+    createdAt: now,
+    updatedAt: now,
+  },
+  // Row 3: Careteam Q1 — Funds Received, $29,425.79, received 10/27/2025
+  {
+    id: 'claim-03',
+    projectId: 'proj-careteam',
+    fiscalYearId: 'fy-2025-26',
+    quarterId: 'q1-2025-26',
+    claimAmount: 29425.79,
+    submittedDate: null,
+    receivedDate: '2025-10-27',
+    receivedAmount: 29425.79,
+    status: 'received',
+    createdAt: now,
+    updatedAt: now,
+  },
+  // Row 4: LTC Innovation Network Q2 — Funds Received, $69,301.82, received 11/27/2025
+  {
+    id: 'claim-04',
+    projectId: 'proj-ltcin',
+    fiscalYearId: 'fy-2025-26',
+    quarterId: 'q2-2025-26',
+    claimAmount: 69301.82,
+    submittedDate: null,
+    receivedDate: '2025-11-27',
+    receivedAmount: 69301.82,
+    status: 'received',
+    createdAt: now,
+    updatedAt: now,
+  },
+  // Row 5: TochTech Q2 — Claim Sent, $13,470.11
+  {
+    id: 'claim-05',
+    projectId: 'proj-tochtech',
+    fiscalYearId: 'fy-2025-26',
+    quarterId: 'q2-2025-26',
+    claimAmount: 13470.11,
+    submittedDate: null,
+    receivedDate: null,
+    receivedAmount: null,
+    status: 'submitted',
+    createdAt: now,
+    updatedAt: now,
+  },
+  // Row 6: GotCare Q2 — Claim Sent, $17,003.68
+  {
+    id: 'claim-06',
+    projectId: 'proj-gotcare',
+    fiscalYearId: 'fy-2025-26',
+    quarterId: 'q2-2025-26',
+    claimAmount: 17003.68,
+    submittedDate: null,
+    receivedDate: null,
+    receivedAmount: null,
+    status: 'submitted',
+    createdAt: now,
+    updatedAt: now,
+  },
+  // Row 7: 8-80 Initiative Q3 — Claim Sent, $109,956.40 (in-kind $21,999.02)
+  {
+    id: 'claim-07',
+    projectId: 'proj-880',
+    fiscalYearId: 'fy-2025-26',
+    quarterId: 'q3-2025-26',
+    claimAmount: 109956.40,
+    submittedDate: null,
+    receivedDate: null,
+    receivedAmount: null,
+    status: 'submitted',
+    notes: 'In-kind costs: $21,999.02',
+    createdAt: now,
+    updatedAt: now,
+  },
+  // Row 8: LTC Innovation Network Q3 — Claim Sent, $30,755.84 (in-kind $66,490.49)
+  {
+    id: 'claim-08',
+    projectId: 'proj-ltcin',
+    fiscalYearId: 'fy-2025-26',
+    quarterId: 'q3-2025-26',
+    claimAmount: 30755.84,
+    submittedDate: null,
+    receivedDate: null,
+    receivedAmount: null,
+    status: 'submitted',
+    notes: 'In-kind costs: $66,490.49',
+    createdAt: now,
+    updatedAt: now,
+  },
+  // Row 9: GotCare Q3 — Claim Sent, $14,825.13
+  {
+    id: 'claim-09',
+    projectId: 'proj-gotcare',
+    fiscalYearId: 'fy-2025-26',
+    quarterId: 'q3-2025-26',
+    claimAmount: 14825.13,
+    submittedDate: null,
+    receivedDate: null,
+    receivedAmount: null,
+    status: 'submitted',
+    createdAt: now,
+    updatedAt: now,
+  },
+  // Row 10: TochTech Q3 — Claim Sent, $8,371.74
+  {
+    id: 'claim-10',
+    projectId: 'proj-tochtech',
+    fiscalYearId: 'fy-2025-26',
+    quarterId: 'q3-2025-26',
+    claimAmount: 8371.74,
+    submittedDate: null,
+    receivedDate: null,
+    receivedAmount: null,
+    status: 'submitted',
+    createdAt: now,
+    updatedAt: now,
+  },
+  // Row 11: 8-80 Initiative Q4 — Claim Sent, $45,240.24
+  {
+    id: 'claim-11',
+    projectId: 'proj-880',
+    fiscalYearId: 'fy-2025-26',
+    quarterId: 'q4-2025-26',
+    claimAmount: 45240.24,
+    submittedDate: null,
+    receivedDate: null,
+    receivedAmount: null,
+    status: 'submitted',
+    createdAt: now,
+    updatedAt: now,
+  },
+  // Row 12: 8-80 Initiative Q4 — Draft
+  {
+    id: 'claim-12',
+    projectId: 'proj-880',
+    fiscalYearId: 'fy-2025-26',
+    quarterId: 'q4-2025-26',
+    claimAmount: 0,
+    submittedDate: null,
+    receivedDate: null,
+    receivedAmount: null,
+    status: 'draft',
+    createdAt: now,
+    updatedAt: now,
+  },
+  // Row 13: LTC Innovation Network Q4 — Draft
+  {
+    id: 'claim-13',
+    projectId: 'proj-ltcin',
+    fiscalYearId: 'fy-2025-26',
+    quarterId: 'q4-2025-26',
+    claimAmount: 0,
+    submittedDate: null,
+    receivedDate: null,
+    receivedAmount: null,
+    status: 'draft',
+    createdAt: now,
+    updatedAt: now,
+  },
+  // Row 14: HEALTHi Grant Q4 — Draft
+  {
+    id: 'claim-14',
+    projectId: 'proj-healthi',
+    fiscalYearId: 'fy-2025-26',
+    quarterId: 'q4-2025-26',
+    claimAmount: 0,
+    submittedDate: null,
+    receivedDate: null,
+    receivedAmount: null,
+    status: 'draft',
+    createdAt: now,
+    updatedAt: now,
+  },
+];
+
 // =============================================================================
 // SEED FUNCTION
 // =============================================================================
@@ -557,6 +759,7 @@ export async function seedDatabase(): Promise<void> {
     db.employeeRates,
     db.projects,
     db.salaryAllocations,
+    db.claims,
   ], async () => {
     await db.organizations.bulkAdd(organizations);
     await db.funders.bulkAdd(funders);
@@ -567,6 +770,7 @@ export async function seedDatabase(): Promise<void> {
     await db.employeeRates.bulkAdd(employeeRates);
     await db.projects.bulkAdd(projects);
     await db.salaryAllocations.bulkAdd(salaryAllocations);
+    await db.claims.bulkAdd(claims);
   });
 
   console.log('Database seeded successfully!');
