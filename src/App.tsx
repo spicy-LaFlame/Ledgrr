@@ -7,8 +7,7 @@ import {
   Receipt,
   Users,
   FileSpreadsheet,
-  Settings,
-  ChevronRight,
+  Settings as SettingsIcon,
   Menu,
   X,
   HandCoins,
@@ -23,6 +22,7 @@ import Employees from './pages/Employees';
 import Reports from './pages/Reports';
 import Claims from './pages/Claims';
 import GeneralLedger from './pages/GeneralLedger';
+import Settings from './pages/Settings';
 
 const navItems = [
   { path: '/', label: 'Overview', icon: LayoutDashboard },
@@ -33,7 +33,7 @@ const navItems = [
   { path: '/general-ledger', label: 'General Ledger', icon: BookOpen },
   { path: '/employees', label: 'Employees', icon: Users },
   { path: '/reports', label: 'Reports', icon: FileSpreadsheet },
-  { path: '/settings', label: 'Settings', icon: Settings },
+  { path: '/settings', label: 'Settings', icon: SettingsIcon },
 ];
 
 function Sidebar({ mobileOpen, onClose }: { mobileOpen: boolean; onClose: () => void }) {
@@ -120,20 +120,6 @@ function MobileHeader({ onMenuClick }: { onMenuClick: () => void }) {
   );
 }
 
-function PlaceholderPage({ title }: { title: string }) {
-  return (
-    <div className="flex items-center justify-center h-full">
-      <div className="text-center">
-        <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-          <ChevronRight className="w-8 h-8 text-slate-400" />
-        </div>
-        <h2 className="text-xl font-semibold text-slate-900 mb-2">{title}</h2>
-        <p className="text-sm text-slate-500">Coming soon...</p>
-      </div>
-    </div>
-  );
-}
-
 function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -152,7 +138,7 @@ function AppLayout() {
           <Route path="/general-ledger" element={<GeneralLedger />} />
           <Route path="/employees" element={<Employees />} />
           <Route path="/reports" element={<Reports />} />
-          <Route path="/settings" element={<PlaceholderPage title="Settings" />} />
+          <Route path="/settings" element={<Settings />} />
         </Routes>
       </main>
     </div>
