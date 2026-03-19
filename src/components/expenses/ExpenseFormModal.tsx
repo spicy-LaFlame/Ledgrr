@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import type { Expense, ExpenseCategory, Project, Quarter, PaymentMethod } from '../../db/schema';
+import { useProjectBudgetSummary } from '../../hooks/useProjectBudgetSummary';
 
 export type ExpenseFormData = Omit<Expense, 'id' | 'createdAt' | 'updatedAt'>;
 
@@ -46,6 +47,14 @@ const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Budget summary for selected project
+  const budgetSummary = useProjectBudgetSummary(
+    formData.projectId || undefined,
+    formData.fiscalYearId,
+    undefined,
+    expense?.id,
+  );
 
   useEffect(() => {
     if (expense && mode === 'edit') {
@@ -242,6 +251,76 @@ const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
                 />
               </div>
             </div>
+
+            {/* Budget Remainder */}
+            {budgetSummary && formData.projectId && (() => {
+              const formatCurrency = (amount: number): string =>
+                new Intl.NumberFormat('en-CA', {
+                  style: 'currency', currency: 'CAD',
+                  minimumFractionDigits: 0, maximumFractionDigits: 0,
+                }).format(amount);
+
+              const fyBudget = budgetSummary.fyBudget;
+              const alreadyAllocated = budgetSummary.totalAllocated;
+              const thisEntryAmount = formData.budgetedAmount || 0;
+              const remainingAfter = fyBudget - alreadyAllocated - thisEntryAmount;
+              const pctUsedAfter = fyBudget > 0 ? ((alreadyAllocated + thisEntryAmount) / fyBudget) * 100 : 0;
+
+              if (fyBudget === 0) {
+                return (
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                    <p className="text-xs text-slate-500 text-center">No FY budget set for this project</p>
+                  </div>
+                );
+              }
+
+              const colorClass = remainingAfter <= 0
+                ? 'text-red-700'
+                : remainingAfter < fyBudget * 0.2
+                  ? 'text-amber-700'
+                  : 'text-emerald-700';
+              const bgClass = remainingAfter <= 0
+                ? 'bg-red-50 border-red-200'
+                : remainingAfter < fyBudget * 0.2
+                  ? 'bg-amber-50 border-amber-200'
+                  : 'bg-emerald-50 border-emerald-200';
+
+              return (
+                <div className={`p-4 border rounded-xl space-y-2 ${bgClass}`}>
+                  <p className="text-xs font-semibold uppercase tracking-wide">FY Budget Remaining</p>
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    <div>
+                      <p className="text-xs text-slate-500">FY Budget</p>
+                      <p className="text-sm font-bold text-slate-900">{formatCurrency(fyBudget)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-500">Already Allocated</p>
+                      <p className="text-sm font-bold text-slate-900">{formatCurrency(alreadyAllocated)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-500">Remaining After This</p>
+                      <p className={`text-sm font-bold ${colorClass}`}>
+                        {remainingAfter < 0
+                          ? `Over by ${formatCurrency(Math.abs(remainingAfter))}`
+                          : formatCurrency(remainingAfter)
+                        }
+                      </p>
+                    </div>
+                  </div>
+                  <div className="w-full bg-white/60 rounded-full h-1.5 mt-1">
+                    <div
+                      className={`h-1.5 rounded-full transition-all ${
+                        remainingAfter <= 0 ? 'bg-red-500' : remainingAfter < fyBudget * 0.2 ? 'bg-amber-500' : 'bg-emerald-500'
+                      }`}
+                      style={{ width: `${Math.min(pctUsedAfter, 100)}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-slate-500 text-center">
+                    {pctUsedAfter.toFixed(0)}% of FY budget allocated
+                  </p>
+                </div>
+              );
+            })()}
 
             {/* Payment Method */}
             <div>

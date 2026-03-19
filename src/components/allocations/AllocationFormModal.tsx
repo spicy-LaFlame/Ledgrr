@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { X } from 'lucide-react';
 import type { SalaryAllocation, Employee, Project, Quarter, EmployeeRate } from '../../db/schema';
 import { calculateCost } from '../../hooks/useEmployees';
+import { useProjectBudgetSummary } from '../../hooks/useProjectBudgetSummary';
 
 export type AllocationFormData = Omit<SalaryAllocation, 'id' | 'createdAt' | 'updatedAt'>;
 
@@ -105,6 +106,13 @@ const AllocationFormModal: React.FC<AllocationFormModalProps> = ({
 
     return { budgetedCost, actualCost, rate };
   }, [formData.employeeId, formData.projectId, formData.quarterId, formData.budgetedHours, formData.actualHours, rates, projects]);
+
+  // Budget summary for selected project
+  const budgetSummary = useProjectBudgetSummary(
+    formData.projectId || undefined,
+    formData.fiscalYearId,
+    allocation?.id,
+  );
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -348,6 +356,76 @@ const AllocationFormModal: React.FC<AllocationFormModalProps> = ({
                 )}
               </div>
             )}
+
+            {/* Budget Remainder */}
+            {budgetSummary && formData.projectId && (() => {
+              const isInKind = formData.isInKind;
+              const fyBudget = isInKind ? budgetSummary.inKindFyBudget : budgetSummary.fyBudget;
+              const alreadyAllocated = isInKind ? budgetSummary.inKindAllocated : budgetSummary.totalAllocated;
+              const thisEntryCost = costPreview ? costPreview.budgetedCost.fundedCost : 0;
+              const remainingAfter = fyBudget - alreadyAllocated - thisEntryCost;
+              const pctUsedAfter = fyBudget > 0 ? ((alreadyAllocated + thisEntryCost) / fyBudget) * 100 : 0;
+
+              if (fyBudget === 0) {
+                return (
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                    <p className="text-xs text-slate-500 text-center">
+                      No {isInKind ? 'in-kind ' : ''}FY budget set for this project
+                    </p>
+                  </div>
+                );
+              }
+
+              const colorClass = remainingAfter <= 0
+                ? 'text-red-700'
+                : remainingAfter < fyBudget * 0.2
+                  ? 'text-amber-700'
+                  : 'text-emerald-700';
+              const bgClass = remainingAfter <= 0
+                ? 'bg-red-50 border-red-200'
+                : remainingAfter < fyBudget * 0.2
+                  ? 'bg-amber-50 border-amber-200'
+                  : 'bg-emerald-50 border-emerald-200';
+
+              return (
+                <div className={`p-4 border rounded-xl space-y-2 ${bgClass}`}>
+                  <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'inherit' }}>
+                    {isInKind ? 'In-Kind ' : ''}FY Budget Remaining
+                  </p>
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    <div>
+                      <p className="text-xs text-slate-500">FY Budget</p>
+                      <p className="text-sm font-bold text-slate-900">{formatCurrency(fyBudget)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-500">Already Allocated</p>
+                      <p className="text-sm font-bold text-slate-900">{formatCurrency(alreadyAllocated)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-500">Remaining After This</p>
+                      <p className={`text-sm font-bold ${colorClass}`}>
+                        {remainingAfter < 0
+                          ? `Over by ${formatCurrency(Math.abs(remainingAfter))}`
+                          : formatCurrency(remainingAfter)
+                        }
+                      </p>
+                    </div>
+                  </div>
+                  {/* Progress bar */}
+                  <div className="w-full bg-white/60 rounded-full h-1.5 mt-1">
+                    <div
+                      className={`h-1.5 rounded-full transition-all ${
+                        remainingAfter <= 0 ? 'bg-red-500' : remainingAfter < fyBudget * 0.2 ? 'bg-amber-500' : 'bg-emerald-500'
+                      }`}
+                      style={{ width: `${Math.min(pctUsedAfter, 100)}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-slate-500 text-center">
+                    {pctUsedAfter.toFixed(0)}% of {isInKind ? 'in-kind ' : ''}FY budget allocated
+                  </p>
+                </div>
+              );
+            })()}
           </div>
 
           {/* Footer */}
