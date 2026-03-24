@@ -353,6 +353,8 @@ export interface ProjectStatusData {
 
   salaryBudgeted: number;
   salaryActual: number;
+  inKindSalaryBudgeted: number;
+  inKindSalaryActual: number;
   expenseBudgeted: number;
   expenseActual: number;
   totalBudgeted: number;
@@ -412,16 +414,27 @@ export async function getProjectStatusData(
   const cap = project.benefitsCapPercent / 100;
   const capType: BenefitsCapType = project.benefitsCapType ?? 'percentage-of-benefits';
 
-  // Overall totals
+  // Overall totals (cash vs in-kind)
   let salaryBudgeted = 0, salaryActual = 0;
+  let inKindSalaryBudgeted = 0, inKindSalaryActual = 0;
   for (const alloc of projectAllocations) {
     const rate = allRates.find(r =>
       r.employeeId === alloc.employeeId && r.quarterId === alloc.quarterId
     ) ?? allRates.find(r => r.employeeId === alloc.employeeId);
     if (!rate) continue;
-    salaryBudgeted += calculateCost(alloc.budgetedHours, rate, cap, capType).fundedCost;
+    const budgetCost = calculateCost(alloc.budgetedHours, rate, cap, capType).fundedCost;
+    if (alloc.isInKind) {
+      inKindSalaryBudgeted += budgetCost;
+    } else {
+      salaryBudgeted += budgetCost;
+    }
     if (alloc.actualHours !== null) {
-      salaryActual += calculateCost(alloc.actualHours, rate, cap, capType).fundedCost;
+      const actualCost = calculateCost(alloc.actualHours, rate, cap, capType).fundedCost;
+      if (alloc.isInKind) {
+        inKindSalaryActual += actualCost;
+      } else {
+        salaryActual += actualCost;
+      }
     }
   }
 
@@ -508,6 +521,7 @@ export async function getProjectStatusData(
     fiscalYearBudget: project.fiscalYearBudget,
     inKindBudget: project.inKindBudget,
     salaryBudgeted, salaryActual,
+    inKindSalaryBudgeted, inKindSalaryActual,
     expenseBudgeted, expenseActual,
     totalBudgeted, totalActual,
     utilizationPct: project.fiscalYearBudget > 0
@@ -550,6 +564,8 @@ export interface ClaimsQuarterSection {
   salaryItems: ClaimsSalaryItem[];
   expenseItems: ClaimsExpenseItem[];
   salarySub: number;
+  cashSalarySub: number;
+  inKindSalarySub: number;
   expenseSub: number;
   quarterTotal: number;
 }
@@ -612,6 +628,8 @@ export async function getQuarterlyClaimsData(
     // Salary line items (only actuals for claims)
     const salaryItems: ClaimsSalaryItem[] = [];
     let salarySub = 0;
+    let cashSalarySub = 0;
+    let inKindSalarySub = 0;
 
     for (const alloc of qAllocations) {
       const emp = employees.find(e => e.id === alloc.employeeId);
@@ -636,6 +654,11 @@ export async function getQuarterlyClaimsData(
         isInKind: alloc.isInKind,
       });
       salarySub += cost.fundedCost;
+      if (alloc.isInKind) {
+        inKindSalarySub += cost.fundedCost;
+      } else {
+        cashSalarySub += cost.fundedCost;
+      }
     }
 
     // Expense line items
@@ -654,7 +677,8 @@ export async function getQuarterlyClaimsData(
       expenseSub += amount;
     }
 
-    const quarterTotal = salarySub + expenseSub;
+    // quarterTotal only counts cash salary (in-kind is not claimed)
+    const quarterTotal = cashSalarySub + expenseSub;
     grandTotal += quarterTotal;
 
     return {
@@ -662,6 +686,8 @@ export async function getQuarterlyClaimsData(
       salaryItems,
       expenseItems,
       salarySub,
+      cashSalarySub,
+      inKindSalarySub,
       expenseSub,
       quarterTotal,
     };

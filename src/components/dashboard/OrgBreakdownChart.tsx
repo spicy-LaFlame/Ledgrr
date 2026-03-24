@@ -34,7 +34,7 @@ const OrgBreakdownChart: React.FC<OrgBreakdownChartProps> = ({ data, formatCurre
     <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden h-full">
       <div className="px-5 py-4 border-b border-slate-100">
         <div className="flex items-center justify-between">
-          <h3 className="text-base font-semibold text-slate-900">By Organization</h3>
+          <h3 className="text-base font-semibold text-cyan-900">By Organization</h3>
           <button className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
             <ArrowUpRight className="w-4 h-4 text-slate-400" />
           </button>

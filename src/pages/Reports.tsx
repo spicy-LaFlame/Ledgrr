@@ -20,6 +20,7 @@ import { useAI } from '../hooks/useAI';
 import { sanitizeProjectSummaryRows } from '../ai/sanitizer';
 import type { SafeProjectData } from '../ai/types';
 import NarrativeGenerator from '../components/ai/NarrativeGenerator';
+import { PageHeader } from '../components/shared/PageHeader';
 
 const Reports: React.FC = () => {
   const { fiscalYears, quarters, currentFiscalYear } = useFiscalPeriods();
@@ -105,7 +106,7 @@ const Reports: React.FC = () => {
         const data = await getProjectSummaryData(currentFiscalYear.id, 'active');
         const safe = sanitizeProjectSummaryRows(data.rows);
         setNarrativeData(safe);
-        setNarrativeTitle(`Narrative for all active projects — FY ${currentFiscalYear.name}`);
+        setNarrativeTitle(`Narrative for all active projects \u2014 FY ${currentFiscalYear.name}`);
         setNarrativeOpen(true);
       }
     } catch (err) {
@@ -115,14 +116,10 @@ const Reports: React.FC = () => {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
-      {/* Header */}
-      <div className="mb-6 sm:mb-8">
-        <h1 className="text-2xl font-bold text-slate-900">Reports</h1>
-        <p className="text-sm text-slate-500 mt-1">
-          Generate and export budget reports
-          {currentFiscalYear ? ` — FY ${currentFiscalYear.name}` : ''}
-        </p>
-      </div>
+      <PageHeader
+        title="Reports"
+        subtitle={`Generate and export budget reports${currentFiscalYear ? ` \u2014 FY ${currentFiscalYear.name}` : ''}`}
+      />
 
       {/* Success Message */}
       {successMessage && (
@@ -134,7 +131,7 @@ const Reports: React.FC = () => {
       {/* Report Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
         <ReportCard
-          icon={<Table2 className="w-5 h-5 text-slate-600" />}
+          icon={<Table2 className="w-5 h-5 text-cyan-600" />}
           title="Project Summary"
           description="Overview of all projects with budget vs actual spending, salary/expense breakdown, and utilization."
           format="Excel"
@@ -142,21 +139,21 @@ const Reports: React.FC = () => {
           onNarrative={isConfigured ? () => handleNarrative('project-summary') : undefined}
         />
         <ReportCard
-          icon={<Users className="w-5 h-5 text-slate-600" />}
+          icon={<Users className="w-5 h-5 text-cyan-600" />}
           title="Team Allocation"
           description="Per-employee breakdown: cash vs in-kind hours and costs per project, with allocation percentage."
           format="Excel"
           onGenerate={() => openConfig('team-allocation')}
         />
         <ReportCard
-          icon={<FileText className="w-5 h-5 text-slate-600" />}
+          icon={<FileText className="w-5 h-5 text-cyan-600" />}
           title="Project Status"
-          description="One-page printable summary of a project's health — budget, spending, team, and funding status."
+          description="One-page printable summary of a project's health \u2014 budget, spending, team, and funding status."
           format="PDF"
           onGenerate={() => openConfig('project-status')}
         />
         <ReportCard
-          icon={<ClipboardList className="w-5 h-5 text-slate-600" />}
+          icon={<ClipboardList className="w-5 h-5 text-cyan-600" />}
           title="Quarterly Claims"
           description="Funder-facing backup showing actual salary and expense spend per quarter with line-item detail."
           format="Excel"
@@ -164,7 +161,6 @@ const Reports: React.FC = () => {
         />
       </div>
 
-      {/* AI Narrative Modal */}
       <NarrativeGenerator
         isOpen={narrativeOpen}
         onClose={() => setNarrativeOpen(false)}
@@ -172,7 +168,6 @@ const Reports: React.FC = () => {
         title={narrativeTitle}
       />
 
-      {/* Config Modal */}
       <ReportConfigModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}

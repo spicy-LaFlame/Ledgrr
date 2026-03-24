@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { v4 as uuidv4 } from 'uuid';
-import { db, type Claim } from '../db/schema';
+import { db, type Claim, type ClaimStatus } from '../db/schema';
 
 interface ClaimFilters {
   projectId?: string;
@@ -60,4 +60,47 @@ export function useClaims(options?: ClaimFilters) {
     updateClaim,
     deleteClaim,
   };
+}
+
+export interface ClaimsSummary {
+  totalClaimed: number;
+  totalReceived: number;
+  outstanding: number;
+  pending: number;
+  byProject: Record<string, { claimed: number; received: number }>;
+}
+
+export function useClaimsSummary(fiscalYearId: string): ClaimsSummary {
+  const summary = useLiveQuery(async () => {
+    const claims = await db.claims
+      .filter(c => c.fiscalYearId === fiscalYearId)
+      .toArray();
+
+    let totalClaimed = 0;
+    let totalReceived = 0;
+    let pending = 0;
+    const byProject: Record<string, { claimed: number; received: number }> = {};
+
+    for (const claim of claims) {
+      if (!byProject[claim.projectId]) {
+        byProject[claim.projectId] = { claimed: 0, received: 0 };
+      }
+
+      if (claim.status === 'draft') {
+        pending += claim.claimAmount;
+      } else {
+        // submitted, partial, received
+        totalClaimed += claim.claimAmount;
+        totalReceived += claim.receivedAmount ?? 0;
+        byProject[claim.projectId].claimed += claim.claimAmount;
+        byProject[claim.projectId].received += claim.receivedAmount ?? 0;
+      }
+    }
+
+    const outstanding = totalClaimed - totalReceived;
+
+    return { totalClaimed, totalReceived, outstanding, pending, byProject };
+  }, [fiscalYearId]);
+
+  return summary ?? { totalClaimed: 0, totalReceived: 0, outstanding: 0, pending: 0, byProject: {} };
 }

@@ -1,13 +1,11 @@
 import type { GLEntry, PayrollEntry } from '../../db/schema';
+import { formatCurrency } from '../../utils/formatters';
 
 interface ReconciliationDrilldownProps {
   costCentre: string;
   glEntries: GLEntry[];
   payrollEntries: PayrollEntry[];
 }
-
-const formatCurrency = (amount: number): string =>
-  new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
 
 const formatDate = (date?: string): string => {
   if (!date) return '—';

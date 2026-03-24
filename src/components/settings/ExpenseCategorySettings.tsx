@@ -83,7 +83,7 @@ export const ExpenseCategorySettings: React.FC = () => {
         </div>
         <button
           onClick={openAdd}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-cyan-600 hover:bg-cyan-700 rounded-lg transition-colors"
         >
           <Plus className="w-3.5 h-3.5" />
           Add
@@ -100,7 +100,7 @@ export const ExpenseCategorySettings: React.FC = () => {
                 value={formName}
                 onChange={e => setFormName(e.target.value)}
                 placeholder="e.g., Consulting Fees"
-                className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900"
+                className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
                 onKeyDown={e => { if (e.key === 'Enter') handleSave(); }}
               />
             </div>
@@ -113,7 +113,7 @@ export const ExpenseCategorySettings: React.FC = () => {
               </button>
               <button
                 onClick={handleSave}
-                className="px-3 py-1.5 text-xs font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors"
+                className="px-3 py-1.5 text-xs font-medium text-white bg-cyan-600 hover:bg-cyan-700 rounded-lg transition-colors"
               >
                 {editingId ? 'Update' : 'Add'}
               </button>

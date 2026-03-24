@@ -20,18 +20,20 @@ const MetricCard: React.FC<MetricCardProps> = ({
   onArrowClick,
 }) => {
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-5">
+    <div className="bg-white rounded-2xl border border-slate-200 p-5 hover:shadow-md transition-all duration-200">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <span className="text-blue-600">{icon}</span>
+          <div className="w-9 h-9 bg-cyan-50 rounded-xl flex items-center justify-center">
+            <span className="text-cyan-600">{icon}</span>
+          </div>
           <span className="text-sm font-medium text-slate-600">{title}</span>
         </div>
         {onArrowClick ? (
           <button
             onClick={onArrowClick}
-            className="p-1 hover:bg-slate-100 rounded transition-colors"
+            className="p-1 hover:bg-cyan-50 rounded transition-colors duration-200 cursor-pointer"
           >
-            <ArrowUpRight className="w-4 h-4 text-blue-500" />
+            <ArrowUpRight className="w-4 h-4 text-cyan-500" />
           </button>
         ) : (
           <div className="p-1">
@@ -40,7 +42,7 @@ const MetricCard: React.FC<MetricCardProps> = ({
         )}
       </div>
       <div className="mb-1">
-        <span className="text-2xl font-bold text-slate-900">{value}</span>
+        <span className="text-2xl font-bold text-cyan-900">{value}</span>
       </div>
       {trend && (
         <div className="flex items-center gap-2">
@@ -51,7 +53,7 @@ const MetricCard: React.FC<MetricCardProps> = ({
                 : 'bg-slate-100 text-slate-600'
             }`}
           >
-            {trendPositive && '↑ '}{trend.value.toFixed(1)}%
+            {trendPositive && '\u2191 '}{trend.value.toFixed(1)}%
           </span>
           <span className="text-xs text-slate-400">{trend.label}</span>
         </div>

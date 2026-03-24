@@ -134,7 +134,7 @@ export const FiscalYearSettings: React.FC = () => {
         </div>
         <button
           onClick={openAdd}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-cyan-600 hover:bg-cyan-700 rounded-lg transition-colors"
         >
           <Plus className="w-3.5 h-3.5" />
           Add
@@ -151,7 +151,7 @@ export const FiscalYearSettings: React.FC = () => {
                 value={formData.name}
                 onChange={handleNameChange}
                 placeholder="2026-27"
-                className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900"
+                className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
               />
             </div>
             <div>
@@ -160,7 +160,7 @@ export const FiscalYearSettings: React.FC = () => {
                 type="date"
                 value={formData.startDate}
                 onChange={e => setFormData(prev => ({ ...prev, startDate: e.target.value }))}
-                className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900"
+                className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
               />
             </div>
             <div>
@@ -169,7 +169,7 @@ export const FiscalYearSettings: React.FC = () => {
                 type="date"
                 value={formData.endDate}
                 onChange={e => setFormData(prev => ({ ...prev, endDate: e.target.value }))}
-                className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900"
+                className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
               />
             </div>
           </div>
@@ -182,7 +182,7 @@ export const FiscalYearSettings: React.FC = () => {
             </button>
             <button
               onClick={handleSave}
-              className="px-3 py-1.5 text-xs font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors"
+              className="px-3 py-1.5 text-xs font-medium text-white bg-cyan-600 hover:bg-cyan-700 rounded-lg transition-colors"
             >
               {editingId ? 'Update' : 'Add Fiscal Year'}
             </button>

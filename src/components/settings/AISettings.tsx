@@ -80,7 +80,7 @@ const AISettings: React.FC = () => {
               value={keyInput}
               onChange={e => setKeyInput(e.target.value)}
               placeholder={settings.apiKey ? 'Key saved — enter new key to replace' : 'sk-ant-...'}
-              className="w-full px-3 py-2 pr-10 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+              className="w-full px-3 py-2 pr-10 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
             />
             <button
               onClick={() => setShowKey(!showKey)}
@@ -92,7 +92,7 @@ const AISettings: React.FC = () => {
           <button
             onClick={handleSaveKey}
             disabled={!keyInput || isSaving}
-            className="px-4 py-2 text-sm font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-lg disabled:opacity-50"
+            className="px-4 py-2 text-sm font-medium text-white bg-cyan-600 hover:bg-cyan-700 rounded-lg disabled:opacity-50"
           >
             {isSaving ? 'Saving...' : 'Save'}
           </button>
@@ -128,7 +128,7 @@ const AISettings: React.FC = () => {
         <select
           value={settings.model}
           onChange={e => handleModelChange(e.target.value)}
-          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
         >
           <option value="claude-sonnet-4-20250514">Claude Sonnet 4 (Recommended)</option>
           <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5 (Faster, lower cost)</option>

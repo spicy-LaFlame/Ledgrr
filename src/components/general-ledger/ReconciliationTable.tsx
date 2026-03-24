@@ -1,17 +1,17 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { ChevronDown, ChevronRight, Search, AlertTriangle } from 'lucide-react';
 import type { ReconciliationRow } from '../../utils/reconciliation';
 import type { GLEntry, PayrollEntry } from '../../db/schema';
 import ReconciliationDrilldown from './ReconciliationDrilldown';
+import { formatCurrency } from '../../utils/formatters';
+import { useSort, type SortColumnDef } from '../../hooks/useSort';
+import { SortableHeader } from '../shared/SortableHeader';
 
 interface ReconciliationTableProps {
   rows: ReconciliationRow[];
   glEntries: GLEntry[];
   payrollEntries: PayrollEntry[];
 }
-
-const formatCurrency = (amount: number): string =>
-  new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
 
 const statusStyles: Record<ReconciliationRow['status'], { label: string; bg: string; text: string }> = {
   matched: { label: 'Matched', bg: 'bg-emerald-100', text: 'text-emerald-700' },
@@ -26,6 +26,20 @@ const ReconciliationTable: React.FC<ReconciliationTableProps> = ({
   payrollEntries,
 }) => {
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
+
+  const sortColumns: SortColumnDef<ReconciliationRow>[] = useMemo(() => [
+    { key: 'costCentre', accessor: (r) => r.costCentre, type: 'string' },
+    { key: 'project', accessor: (r) => r.projectName ?? '', type: 'string' },
+    { key: 'externalTotal', accessor: (r) => r.externalTotal, type: 'number' },
+    { key: 'appTotal', accessor: (r) => r.appTotal, type: 'number' },
+    { key: 'variance', accessor: (r) => r.variance, type: 'number' },
+    { key: 'status', accessor: (r) => r.status, type: 'string' },
+  ], []);
+
+  const { sortedData: sortedRows, sortConfig, requestSort } = useSort({
+    data: rows,
+    columns: sortColumns,
+  });
 
   if (rows.length === 0) {
     return (
@@ -43,17 +57,17 @@ const ReconciliationTable: React.FC<ReconciliationTableProps> = ({
         <thead>
           <tr className="border-b border-slate-100">
             <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide w-8"></th>
-            <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Cost Centre</th>
-            <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Project</th>
+            <SortableHeader label="Cost Centre" sortKey="costCentre" currentSort={sortConfig} onSort={requestSort} />
+            <SortableHeader label="Project" sortKey="project" currentSort={sortConfig} onSort={requestSort} />
             <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Funder</th>
-            <th className="px-5 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">External Total</th>
-            <th className="px-5 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">App Total</th>
-            <th className="px-5 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">Variance</th>
-            <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
+            <SortableHeader label="External Total" sortKey="externalTotal" currentSort={sortConfig} onSort={requestSort} align="right" />
+            <SortableHeader label="App Total" sortKey="appTotal" currentSort={sortConfig} onSort={requestSort} align="right" />
+            <SortableHeader label="Variance" sortKey="variance" currentSort={sortConfig} onSort={requestSort} align="right" />
+            <SortableHeader label="Status" sortKey="status" currentSort={sortConfig} onSort={requestSort} />
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
-          {rows.map(row => {
+          {sortedRows.map(row => {
             const isExpanded = expandedRow === row.costCentre;
             const style = statusStyles[row.status];
             return (

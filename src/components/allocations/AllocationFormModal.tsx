@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
-import { X } from 'lucide-react';
 import type { SalaryAllocation, Employee, Project, Quarter, EmployeeRate } from '../../db/schema';
-import { calculateCost } from '../../hooks/useEmployees';
+import { calculateCost, calculateHoursFromFundedCost } from '../../hooks/useEmployees';
 import { useProjectBudgetSummary } from '../../hooks/useProjectBudgetSummary';
+import { formatCurrency } from '../../utils/formatters';
+import { Modal } from '../shared/Modal';
 
 export type AllocationFormData = Omit<SalaryAllocation, 'id' | 'createdAt' | 'updatedAt'>;
 
@@ -19,15 +20,6 @@ interface AllocationFormModalProps {
   currentFiscalYearId: string;
   checkDuplicate: (empId: string, projId: string, fyId: string, qId: string, excludeId?: string) => Promise<boolean>;
 }
-
-const formatCurrency = (amount: number): string => {
-  return new Intl.NumberFormat('en-CA', {
-    style: 'currency',
-    currency: 'CAD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
-};
 
 const AllocationFormModal: React.FC<AllocationFormModalProps> = ({
   isOpen,
@@ -54,6 +46,9 @@ const AllocationFormModal: React.FC<AllocationFormModalProps> = ({
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [inputMode, setInputMode] = useState<'hours' | 'dollars'>('hours');
+  const [dollarBudgeted, setDollarBudgeted] = useState<number>(0);
+  const [dollarActual, setDollarActual] = useState<number | null>(null);
 
   useEffect(() => {
     if (allocation && mode === 'edit') {
@@ -114,13 +109,67 @@ const AllocationFormModal: React.FC<AllocationFormModalProps> = ({
     allocation?.id,
   );
 
+  // Rate context for dollar-to-hours conversion
+  const rateContext = useMemo(() => {
+    if (!formData.employeeId || !formData.projectId || !formData.quarterId) return null;
+    const rate = rates.find(r =>
+      r.employeeId === formData.employeeId && r.quarterId === formData.quarterId
+    ) ?? rates.find(r => r.employeeId === formData.employeeId);
+    const project = projects.find(p => p.id === formData.projectId);
+    if (!rate || !project) return null;
+    const cap = project.benefitsCapPercent / 100;
+    const capType = project.benefitsCapType ?? 'percentage-of-benefits';
+    return { rate, cap, capType };
+  }, [formData.employeeId, formData.projectId, formData.quarterId, rates, projects]);
+
+  const handleModeSwitch = (newMode: 'hours' | 'dollars') => {
+    if (newMode === inputMode) return;
+    if (newMode === 'dollars' && rateContext) {
+      // Convert current hours to dollars
+      const budgetedCost = formData.budgetedHours > 0
+        ? calculateCost(formData.budgetedHours, rateContext.rate, rateContext.cap, rateContext.capType).fundedCost
+        : 0;
+      const actualCost = formData.actualHours !== null && formData.actualHours > 0
+        ? calculateCost(formData.actualHours, rateContext.rate, rateContext.cap, rateContext.capType).fundedCost
+        : null;
+      setDollarBudgeted(Math.round(budgetedCost * 100) / 100);
+      setDollarActual(actualCost !== null ? Math.round(actualCost * 100) / 100 : null);
+    }
+    setInputMode(newMode);
+  };
+
+  const handleDollarBudgetedChange = (value: number) => {
+    setDollarBudgeted(value);
+    if (rateContext && value > 0) {
+      const hours = calculateHoursFromFundedCost(value, rateContext.rate, rateContext.cap, rateContext.capType);
+      setFormData(prev => ({ ...prev, budgetedHours: hours }));
+    } else {
+      setFormData(prev => ({ ...prev, budgetedHours: 0 }));
+    }
+  };
+
+  const handleDollarActualChange = (value: number | null) => {
+    setDollarActual(value);
+    if (rateContext && value !== null && value > 0) {
+      const hours = calculateHoursFromFundedCost(value, rateContext.rate, rateContext.cap, rateContext.capType);
+      setFormData(prev => ({ ...prev, actualHours: hours }));
+    } else {
+      setFormData(prev => ({ ...prev, actualHours: value === null ? null : 0 }));
+    }
+  };
+
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
     if (!formData.employeeId) newErrors.employeeId = 'Employee is required';
     if (!formData.projectId) newErrors.projectId = 'Project is required';
     if (!formData.quarterId) newErrors.quarterId = 'Quarter is required';
-    if (formData.budgetedHours <= 0) newErrors.budgetedHours = 'Budgeted hours must be greater than 0';
+    if (inputMode === 'dollars') {
+      if (dollarBudgeted <= 0) newErrors.budgetedHours = 'Budgeted amount must be greater than $0';
+      if (!rateContext) newErrors.budgetedHours = 'Select employee, project, and quarter first';
+    } else {
+      if (formData.budgetedHours <= 0) newErrors.budgetedHours = 'Budgeted hours must be greater than 0';
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -168,24 +217,36 @@ const AllocationFormModal: React.FC<AllocationFormModalProps> = ({
     }
   };
 
-  if (!isOpen) return null;
+  const footerButtons = (
+    <>
+      <button
+        type="button"
+        onClick={onClose}
+        className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+      >
+        Cancel
+      </button>
+      <button
+        type="submit"
+        form="allocation-form"
+        disabled={isSubmitting}
+        className="px-4 py-2 text-sm font-medium text-white bg-cyan-600 hover:bg-cyan-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+      >
+        {isSubmitting ? 'Saving...' : mode === 'add' ? 'Add Allocation' : 'Save Changes'}
+      </button>
+    </>
+  );
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-slate-900">
-            {mode === 'add' ? 'Add Allocation' : 'Edit Allocation'}
-          </h2>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
-            <X className="w-5 h-5 text-slate-500" />
-          </button>
-        </div>
-
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
-          <div className="p-6 space-y-4">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={mode === 'add' ? 'Add Salary Allocation' : 'Edit Salary Allocation'}
+      maxWidth="2xl"
+      footer={footerButtons}
+    >
+      <form id="allocation-form" onSubmit={handleSubmit}>
+        <div className="p-6 space-y-4">
             {errors.duplicate && (
               <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
                 {errors.duplicate}
@@ -199,7 +260,7 @@ const AllocationFormModal: React.FC<AllocationFormModalProps> = ({
                 name="employeeId"
                 value={formData.employeeId}
                 onChange={handleChange}
-                className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 ${
+                className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500 ${
                   errors.employeeId ? 'border-red-500' : 'border-slate-300'
                 }`}
               >
@@ -218,7 +279,7 @@ const AllocationFormModal: React.FC<AllocationFormModalProps> = ({
                 name="projectId"
                 value={formData.projectId}
                 onChange={handleChange}
-                className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 ${
+                className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500 ${
                   errors.projectId ? 'border-red-500' : 'border-slate-300'
                 }`}
               >
@@ -237,7 +298,7 @@ const AllocationFormModal: React.FC<AllocationFormModalProps> = ({
                 name="quarterId"
                 value={formData.quarterId}
                 onChange={handleChange}
-                className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 ${
+                className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500 ${
                   errors.quarterId ? 'border-red-500' : 'border-slate-300'
                 }`}
               >
@@ -249,44 +310,113 @@ const AllocationFormModal: React.FC<AllocationFormModalProps> = ({
               {errors.quarterId && <p className="mt-1 text-xs text-red-500">{errors.quarterId}</p>}
             </div>
 
-            {/* Hours */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Budgeted Hours *</label>
-                <input
-                  type="number"
-                  name="budgetedHours"
-                  value={formData.budgetedHours || ''}
-                  onChange={handleChange}
-                  min="0"
-                  step="0.5"
-                  className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 ${
-                    errors.budgetedHours ? 'border-red-500' : 'border-slate-300'
-                  }`}
-                  placeholder="0"
-                />
-                {errors.budgetedHours && <p className="mt-1 text-xs text-red-500">{errors.budgetedHours}</p>}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Actual Hours</label>
-                <input
-                  type="number"
-                  name="actualHours"
-                  value={formData.actualHours ?? ''}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setFormData(prev => ({
-                      ...prev,
-                      actualHours: val === '' ? null : parseFloat(val),
-                    }));
-                  }}
-                  min="0"
-                  step="0.5"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
-                  placeholder="Not entered"
-                />
-              </div>
+            {/* Input Mode Toggle */}
+            <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg w-fit">
+              <button
+                type="button"
+                onClick={() => handleModeSwitch('hours')}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                  inputMode === 'hours' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                Hours
+              </button>
+              <button
+                type="button"
+                onClick={() => handleModeSwitch('dollars')}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                  inputMode === 'dollars' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                Dollars
+              </button>
             </div>
+
+            {/* Hours / Dollars Input */}
+            {inputMode === 'hours' ? (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Budgeted Hours *</label>
+                  <input
+                    type="number"
+                    name="budgetedHours"
+                    value={formData.budgetedHours || ''}
+                    onChange={handleChange}
+                    min="0"
+                    step="0.01"
+                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500 ${
+                      errors.budgetedHours ? 'border-red-500' : 'border-slate-300'
+                    }`}
+                    placeholder="0"
+                  />
+                  {errors.budgetedHours && <p className="mt-1 text-xs text-red-500">{errors.budgetedHours}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Actual Hours</label>
+                  <input
+                    type="number"
+                    name="actualHours"
+                    value={formData.actualHours ?? ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setFormData(prev => ({
+                        ...prev,
+                        actualHours: val === '' ? null : parseFloat(val),
+                      }));
+                    }}
+                    min="0"
+                    step="0.01"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500"
+                    placeholder="Not entered"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Budgeted Funded Cost ($) *</label>
+                    <input
+                      type="number"
+                      value={dollarBudgeted || ''}
+                      onChange={(e) => handleDollarBudgetedChange(e.target.value === '' ? 0 : parseFloat(e.target.value))}
+                      min="0"
+                      step="0.01"
+                      className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500 ${
+                        errors.budgetedHours ? 'border-red-500' : 'border-slate-300'
+                      }`}
+                      placeholder="0.00"
+                    />
+                    {errors.budgetedHours && <p className="mt-1 text-xs text-red-500">{errors.budgetedHours}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Actual Funded Cost ($)</label>
+                    <input
+                      type="number"
+                      value={dollarActual ?? ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        handleDollarActualChange(val === '' ? null : parseFloat(val));
+                      }}
+                      min="0"
+                      step="0.01"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500"
+                      placeholder="Not entered"
+                    />
+                  </div>
+                </div>
+                {rateContext && dollarBudgeted > 0 && (
+                  <p className="text-xs text-slate-500">
+                    = {formData.budgetedHours.toFixed(2)} hours at ${(rateContext.rate.baseHourlyRate + rateContext.rate.benefitsRate * rateContext.cap).toFixed(2)}/hr effective rate
+                  </p>
+                )}
+                {!rateContext && (
+                  <p className="text-xs text-amber-600">
+                    Select employee, project, and quarter to calculate hours
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* In-Kind Toggle */}
             <div className="flex items-center justify-between py-3 px-4 bg-slate-50 rounded-xl border border-slate-200">
@@ -310,7 +440,7 @@ const AllocationFormModal: React.FC<AllocationFormModalProps> = ({
                 value={formData.notes}
                 onChange={handleChange}
                 rows={2}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 resize-none"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500 resize-none"
                 placeholder="Optional notes..."
               />
             </div>
@@ -427,27 +557,8 @@ const AllocationFormModal: React.FC<AllocationFormModalProps> = ({
               );
             })()}
           </div>
-
-          {/* Footer */}
-          <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="px-4 py-2 text-sm font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSubmitting ? 'Saving...' : mode === 'add' ? 'Add Allocation' : 'Save Changes'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+      </form>
+    </Modal>
   );
 };
 

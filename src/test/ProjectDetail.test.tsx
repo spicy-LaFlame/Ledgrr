@@ -84,12 +84,13 @@ describe('ProjectDetail', () => {
     vi.clearAllMocks();
     mockUseProjects.mockReturnValue({
       projects: [],
+      activeProjects: [],
       funders: [sampleFunder],
       addProject: vi.fn(),
       updateProject: vi.fn(),
       softDeleteProject: vi.fn(),
       permanentDeleteProject: vi.fn(),
-    } as ReturnType<typeof useProjects>);
+    } as unknown as ReturnType<typeof useProjects>);
     mockUseAllocations.mockReturnValue({
       allocations: [],
     } as unknown as ReturnType<typeof useAllocations>);

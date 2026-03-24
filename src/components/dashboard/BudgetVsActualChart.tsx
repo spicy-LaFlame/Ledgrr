@@ -84,7 +84,7 @@ const BudgetVsActualChart: React.FC<BudgetVsActualChartProps> = ({ data, formatC
   return (
     <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
       <div className="px-5 py-4 border-b border-slate-100">
-        <h3 className="text-base font-semibold text-slate-900">Budget vs Actual</h3>
+        <h3 className="text-base font-semibold text-cyan-900">Budget vs Actual</h3>
         <p className="text-xs text-slate-500 mt-1">Salary and expense spending by project</p>
       </div>
       <div className="p-5">

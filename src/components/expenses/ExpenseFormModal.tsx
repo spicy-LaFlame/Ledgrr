@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
 import type { Expense, ExpenseCategory, Project, Quarter, PaymentMethod } from '../../db/schema';
 import { useProjectBudgetSummary } from '../../hooks/useProjectBudgetSummary';
+import { Modal } from '../shared/Modal';
 
 export type ExpenseFormData = Omit<Expense, 'id' | 'createdAt' | 'updatedAt'>;
 
@@ -122,24 +122,36 @@ const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
     }
   };
 
-  if (!isOpen) return null;
+  const footerButtons = (
+    <>
+      <button
+        type="button"
+        onClick={onClose}
+        className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+      >
+        Cancel
+      </button>
+      <button
+        type="submit"
+        form="expense-form"
+        disabled={isSubmitting}
+        className="px-4 py-2 text-sm font-medium text-white bg-cyan-600 hover:bg-cyan-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+      >
+        {isSubmitting ? 'Saving...' : mode === 'add' ? 'Add Expense' : 'Save Changes'}
+      </button>
+    </>
+  );
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-slate-900">
-            {mode === 'add' ? 'Add Expense' : 'Edit Expense'}
-          </h2>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
-            <X className="w-5 h-5 text-slate-500" />
-          </button>
-        </div>
-
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
-          <div className="p-6 space-y-4">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={mode === 'add' ? 'Add Expense' : 'Edit Expense'}
+      maxWidth="lg"
+      footer={footerButtons}
+    >
+      <form id="expense-form" onSubmit={handleSubmit}>
+        <div className="p-6 space-y-4">
             {/* Project */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Project *</label>
@@ -147,7 +159,7 @@ const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
                 name="projectId"
                 value={formData.projectId}
                 onChange={handleChange}
-                className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 ${
+                className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500 ${
                   errors.projectId ? 'border-red-500' : 'border-slate-300'
                 }`}
               >
@@ -167,7 +179,7 @@ const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
                   name="categoryId"
                   value={formData.categoryId}
                   onChange={handleChange}
-                  className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 ${
+                  className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500 ${
                     errors.categoryId ? 'border-red-500' : 'border-slate-300'
                   }`}
                 >
@@ -184,7 +196,7 @@ const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
                   name="quarterId"
                   value={formData.quarterId}
                   onChange={handleChange}
-                  className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 ${
+                  className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500 ${
                     errors.quarterId ? 'border-red-500' : 'border-slate-300'
                   }`}
                 >
@@ -205,7 +217,7 @@ const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
                 value={formData.description}
                 onChange={handleChange}
                 rows={2}
-                className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 resize-none ${
+                className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500 resize-none ${
                   errors.description ? 'border-red-500' : 'border-slate-300'
                 }`}
                 placeholder="e.g., Conference travel, Software license..."
@@ -224,7 +236,7 @@ const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
                   onChange={handleChange}
                   min="0"
                   step="0.01"
-                  className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 ${
+                  className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500 ${
                     errors.budgetedAmount ? 'border-red-500' : 'border-slate-300'
                   }`}
                   placeholder="0.00"
@@ -246,7 +258,7 @@ const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
                   }}
                   min="0"
                   step="0.01"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500"
                   placeholder="Not entered"
                 />
               </div>
@@ -257,7 +269,7 @@ const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
               const formatCurrency = (amount: number): string =>
                 new Intl.NumberFormat('en-CA', {
                   style: 'currency', currency: 'CAD',
-                  minimumFractionDigits: 0, maximumFractionDigits: 0,
+                  minimumFractionDigits: 2, maximumFractionDigits: 2,
                 }).format(amount);
 
               const fyBudget = budgetSummary.fyBudget;
@@ -335,7 +347,7 @@ const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
                     paymentMethod: val === '' ? undefined : val as PaymentMethod,
                   }));
                 }}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500"
               >
                 <option value="">Not specified</option>
                 {paymentMethodOptions.map(opt => (
@@ -344,27 +356,8 @@ const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
               </select>
             </div>
           </div>
-
-          {/* Footer */}
-          <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="px-4 py-2 text-sm font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSubmitting ? 'Saving...' : mode === 'add' ? 'Add Expense' : 'Save Changes'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+      </form>
+    </Modal>
   );
 };
 

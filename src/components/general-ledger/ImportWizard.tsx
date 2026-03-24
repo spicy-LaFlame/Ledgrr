@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
-import { X, Upload, ChevronRight, ChevronLeft, AlertTriangle, FileSpreadsheet } from 'lucide-react';
+import { Upload, ChevronRight, ChevronLeft, AlertTriangle, FileSpreadsheet } from 'lucide-react';
+import { Modal } from '../shared/Modal';
 import type {
   ImportType,
   ColumnMapping,
@@ -268,42 +269,66 @@ const ImportWizard: React.FC<ImportWizardProps> = ({
     { salary: 0, expense: 0, unclassified: 0 } as Record<GLLineCategory, number>
   );
 
-  if (!isOpen) return null;
-
   const isStep2Valid = importType === 'general-ledger'
     ? !!(mapping.costCentre && mapping.amount)
     : !!(mapping.costCentre && (mapping.earnings || mapping.amount));
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900">Import Data</h2>
-            <div className="flex items-center gap-2 mt-1">
-              {[1, 2, 3].map(s => (
-                <div key={s} className="flex items-center gap-1">
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${
-                    s === step ? 'bg-slate-900 text-white' : s < step ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'
-                  }`}>
-                    {s}
-                  </div>
-                  <span className="text-xs text-slate-500">
-                    {s === 1 ? 'File' : s === 2 ? 'Mapping' : 'Review'}
-                  </span>
-                  {s < 3 && <ChevronRight className="w-3 h-3 text-slate-300" />}
-                </div>
-              ))}
-            </div>
-          </div>
-          <button onClick={handleClose} className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
-            <X className="w-5 h-5 text-slate-500" />
+    <Modal
+      isOpen={isOpen}
+      onClose={handleClose}
+      title="Import Data"
+      maxWidth="2xl"
+      footer={
+        <div className="flex justify-between w-full">
+          <button
+            onClick={step === 1 ? handleClose : () => setStep((step - 1) as Step)}
+            className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+          >
+            {step === 1 ? 'Cancel' : (
+              <span className="flex items-center gap-1">
+                <ChevronLeft className="w-4 h-4" /> Back
+              </span>
+            )}
           </button>
-        </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+          {step < 3 ? (
+            <button
+              onClick={() => setStep((step + 1) as Step)}
+              disabled={step === 1 ? !parsedFile : !isStep2Valid}
+              className="px-4 py-2 text-sm font-medium text-white bg-cyan-600 hover:bg-cyan-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 cursor-pointer"
+            >
+              Next <ChevronRight className="w-4 h-4" />
+            </button>
+          ) : (
+            <button
+              onClick={handleImport}
+              disabled={isImporting || !fiscalYearId || entryCount === 0}
+              className="px-4 py-2 text-sm font-medium text-white bg-cyan-600 hover:bg-cyan-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            >
+              {isImporting ? 'Importing...' : `Import ${entryCount} Entries`}
+            </button>
+          )}
+        </div>
+      }
+    >
+      <div className="p-6">
+        {/* Step indicators */}
+        <div className="flex items-center gap-2 mb-4">
+          {[1, 2, 3].map(s => (
+            <div key={s} className="flex items-center gap-1">
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${
+                s === step ? 'bg-cyan-600 text-white' : s < step ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'
+              }`}>
+                {s}
+              </div>
+              <span className="text-xs text-slate-500">
+                {s === 1 ? 'File' : s === 2 ? 'Mapping' : 'Review'}
+              </span>
+              {s < 3 && <ChevronRight className="w-3 h-3 text-slate-300" />}
+            </div>
+          ))}
+        </div>
           {error && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 shrink-0" />
@@ -324,7 +349,7 @@ const ImportWizard: React.FC<ImportWizardProps> = ({
                       onClick={() => setImportType(type)}
                       className={`p-4 rounded-xl border-2 text-left transition-colors ${
                         importType === type
-                          ? 'border-slate-900 bg-slate-50'
+                          ? 'border-cyan-600 bg-cyan-50'
                           : 'border-slate-200 hover:border-slate-300'
                       }`}
                     >
@@ -541,7 +566,7 @@ const ImportWizard: React.FC<ImportWizardProps> = ({
                 <select
                   value={fiscalYearId}
                   onChange={e => setFiscalYearId(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500"
                 >
                   <option value="">Select fiscal year</option>
                   {fiscalYears.map(fy => (
@@ -614,41 +639,8 @@ const ImportWizard: React.FC<ImportWizardProps> = ({
               </div>
             </div>
           )}
-        </div>
-
-        {/* Footer */}
-        <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-between">
-          <button
-            onClick={step === 1 ? handleClose : () => setStep((step - 1) as Step)}
-            className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"
-          >
-            {step === 1 ? 'Cancel' : (
-              <span className="flex items-center gap-1">
-                <ChevronLeft className="w-4 h-4" /> Back
-              </span>
-            )}
-          </button>
-
-          {step < 3 ? (
-            <button
-              onClick={() => setStep((step + 1) as Step)}
-              disabled={step === 1 ? !parsedFile : !isStep2Valid}
-              className="px-4 py-2 text-sm font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
-            >
-              Next <ChevronRight className="w-4 h-4" />
-            </button>
-          ) : (
-            <button
-              onClick={handleImport}
-              disabled={isImporting || !fiscalYearId || entryCount === 0}
-              className="px-4 py-2 text-sm font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isImporting ? 'Importing...' : `Import ${entryCount} Entries`}
-            </button>
-          )}
-        </div>
       </div>
-    </div>
+    </Modal>
   );
 };
 
@@ -675,7 +667,7 @@ function MappingField({
       <select
         value={(mapping[field] as string) ?? ''}
         onChange={e => setMapping({ ...mapping, [field]: e.target.value || undefined })}
-        className={`flex-1 px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 ${
+        className={`flex-1 px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500 ${
           mapping[field] ? 'border-emerald-300 bg-emerald-50' : 'border-slate-300'
         }`}
       >

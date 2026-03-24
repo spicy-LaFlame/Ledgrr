@@ -1,24 +1,36 @@
-import { useState } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Pencil, Trash2, ExternalLink, MoreHorizontal } from 'lucide-react';
+import { Plus, Pencil, Trash2, MoreVertical, ArrowRight, Building2, Calendar } from 'lucide-react';
 import { useProjects, type ProjectFormData } from '../hooks/useProjects';
+import { useFiscalPeriods } from '../hooks/useAllocations';
+import { useProjectSpending } from '../hooks/useDashboard';
 import type { Project } from '../db/schema';
 import ProjectFormModal from '../components/projects/ProjectFormModal';
 import DeleteProjectModal from '../components/projects/DeleteProjectModal';
+import { FilterBar, type FilterValues } from '../components/shared/FilterBar';
+import { PageHeader } from '../components/shared/PageHeader';
+import { Badge } from '../components/shared/Badge';
+import { formatCurrency, formatDate } from '../utils/formatters';
 
-type StatusFilter = 'all' | 'active' | 'pipeline' | 'completed' | 'on-hold';
-
-const statusStyles: Record<string, { bg: string; text: string }> = {
-  active: { bg: 'bg-emerald-100', text: 'text-emerald-700' },
-  pipeline: { bg: 'bg-amber-100', text: 'text-amber-700' },
-  completed: { bg: 'bg-slate-100', text: 'text-slate-600' },
-  'on-hold': { bg: 'bg-orange-100', text: 'text-orange-700' },
+const statusBadgeVariant: Record<string, 'success' | 'warning' | 'neutral' | 'danger'> = {
+  active: 'success',
+  pipeline: 'warning',
+  completed: 'neutral',
+  'on-hold': 'danger',
 };
 
-const fundingTypeStyles: Record<string, { bg: string; text: string }> = {
-  cash: { bg: 'bg-blue-100', text: 'text-blue-700' },
-  'in-kind': { bg: 'bg-purple-100', text: 'text-purple-700' },
-  mixed: { bg: 'bg-indigo-100', text: 'text-indigo-700' },
+const statusLabels: Record<string, string> = {
+  active: 'Active',
+  pipeline: 'Pipeline',
+  completed: 'Completed',
+  'on-hold': 'On Hold',
+};
+
+const progressLabel: Record<string, string> = {
+  active: 'Spending Efficiency',
+  pipeline: 'Planning Phase',
+  completed: 'Completed',
+  'on-hold': 'Project Stalled',
 };
 
 const Projects: React.FC = () => {
@@ -32,16 +44,31 @@ const Projects: React.FC = () => {
     permanentDeleteProject,
   } = useProjects();
 
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const { currentFiscalYear } = useFiscalPeriods();
+  const fiscalYearId = currentFiscalYear?.id ?? '';
+  const spending = useProjectSpending(fiscalYearId, 'full');
+
   const [searchQuery, setSearchQuery] = useState('');
+  const [filterValues, setFilterValues] = useState<FilterValues>({ status: [] });
+  const handleFilterChange = useCallback((key: string, values: string[]) => {
+    setFilterValues(prev => ({ ...prev, [key]: values }));
+  }, []);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
+
+  const spendingMap = useMemo(() => {
+    const map: Record<string, { budgeted: number; actual: number }> = {};
+    for (const s of spending) {
+      map[s.projectId] = { budgeted: s.budgeted, actual: s.actual };
+    }
+    return map;
+  }, [spending]);
 
   const filteredProjects = projects.filter(project => {
-    const matchesStatus = statusFilter === 'all' || project.status === statusFilter;
+    const matchesStatus = filterValues.status.length === 0 || filterValues.status.includes(project.status);
     const matchesSearch = project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       project.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (project.costCentreNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
@@ -52,30 +79,39 @@ const Projects: React.FC = () => {
     return funders.find(f => f.id === funderId)?.name ?? 'Unknown';
   };
 
-  const formatCurrency = (amount: number): string => {
-    return new Intl.NumberFormat('en-CA', {
-      style: 'currency',
-      currency: 'CAD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
-
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return '—';
-    return new Date(dateString).toLocaleDateString('en-CA', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
-
   const statusCounts = {
-    all: projects.length,
     active: projects.filter(p => p.status === 'active').length,
     pipeline: projects.filter(p => p.status === 'pipeline').length,
     completed: projects.filter(p => p.status === 'completed').length,
     'on-hold': projects.filter(p => p.status === 'on-hold').length,
+  };
+
+  const getSpendingPercent = (project: Project) => {
+    const data = spendingMap[project.id];
+    if (!data || data.budgeted === 0) return 0;
+    return Math.round((data.actual / data.budgeted) * 100);
+  };
+
+  const getBudgetAllocationPercent = (project: Project) => {
+    if (project.fiscalYearBudget === 0) return 0;
+    const data = spendingMap[project.id];
+    if (!data) return 0;
+    return Math.round((data.budgeted / project.fiscalYearBudget) * 100);
+  };
+
+  const getAllocationBarColor = (pct: number) => {
+    if (pct >= 80) return 'bg-cyan-500';
+    if (pct >= 50) return 'bg-amber-400';
+    return 'bg-slate-300';
+  };
+
+  const getProgressBarColor = (project: Project) => {
+    if (project.status === 'on-hold') return 'bg-orange-400';
+    if (project.status === 'completed') return 'bg-slate-400';
+    const pct = getSpendingPercent(project);
+    if (pct >= 50) return 'bg-emerald-500';
+    if (pct >= 25) return 'bg-amber-500';
+    return 'bg-red-500';
   };
 
   const handleAddProject = async (data: ProjectFormData) => {
@@ -101,238 +137,178 @@ const Projects: React.FC = () => {
   const openEditModal = (project: Project) => {
     setSelectedProject(project);
     setShowEditModal(true);
-    setExpandedRow(null);
+    setOpenMenu(null);
   };
 
   const openDeleteModal = (project: Project) => {
     setSelectedProject(project);
     setShowDeleteModal(true);
-    setExpandedRow(null);
-  };
-
-  const toggleRowMenu = (projectId: string) => {
-    setExpandedRow(expandedRow === projectId ? null : projectId);
+    setOpenMenu(null);
   };
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 sm:mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Projects</h1>
-          <p className="text-sm text-slate-500 mt-1">Manage and track innovation projects</p>
-        </div>
+      <PageHeader
+        title="Projects"
+        subtitle="Manage and track innovation projects"
+      />
+
+      <FilterBar
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="Search projects, codes, cost centres..."
+        filters={[
+          {
+            key: 'status',
+            label: 'Status',
+            placeholder: 'All Statuses',
+            options: [
+              { value: 'active', label: `Active (${statusCounts.active})` },
+              { value: 'pipeline', label: `Pipeline (${statusCounts.pipeline})` },
+              { value: 'completed', label: `Completed (${statusCounts.completed})` },
+              { value: 'on-hold', label: `On Hold (${statusCounts['on-hold']})` },
+            ],
+          },
+        ]}
+        filterValues={filterValues}
+        onFilterChange={handleFilterChange}
+        resultCount={filteredProjects.length}
+        resultLabel="projects"
+        totalCount={projects.length}
+      />
+
+      {/* Project Cards Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {filteredProjects.map((project) => {
+          const pct = getSpendingPercent(project);
+          const barColor = getProgressBarColor(project);
+          const label = progressLabel[project.status] ?? 'Spending Efficiency';
+          const allocPct = getBudgetAllocationPercent(project);
+          const allocBarColor = getAllocationBarColor(allocPct);
+
+          return (
+            <div
+              key={project.id}
+              className="bg-white rounded-2xl border border-slate-200 p-5 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 relative group"
+            >
+              {/* Top row: Status badge + code */}
+              <div className="flex items-start justify-between mb-3">
+                <Badge variant={statusBadgeVariant[project.status] ?? 'neutral'}>
+                  {statusLabels[project.status] ?? project.status}
+                </Badge>
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-slate-400">{project.code}</span>
+                  {/* Context menu */}
+                  <div className="relative">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setOpenMenu(openMenu === project.id ? null : project.id); }}
+                      className="p-1 hover:bg-slate-100 rounded-lg transition-colors duration-200 opacity-0 group-hover:opacity-100 cursor-pointer"
+                    >
+                      <MoreVertical className="w-4 h-4 text-slate-400" />
+                    </button>
+                    {openMenu === project.id && (
+                      <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-10 py-1 min-w-[140px]">
+                        <button
+                          onClick={() => openEditModal(project)}
+                          className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                        >
+                          <Pencil className="w-4 h-4" />
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => openDeleteModal(project)}
+                          className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 cursor-pointer"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Delete
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Project name */}
+              <h3 className="text-base font-semibold text-cyan-900 mb-1 line-clamp-2">
+                {project.name}
+              </h3>
+
+              {/* Funder */}
+              <div className="flex items-center gap-1.5 mb-4">
+                <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                <span className="text-xs text-slate-500">Funder: {getFunderName(project.funderId)}</span>
+              </div>
+
+              {/* Progress bars */}
+              <div className="mb-4 space-y-2.5">
+                {/* Funding Allocated */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">Funding Allocated</span>
+                    <span className="text-xs font-semibold text-slate-700">{allocPct}%</span>
+                  </div>
+                  <div className="w-full bg-slate-100 rounded-full h-1.5">
+                    <div
+                      className={`h-1.5 rounded-full animate-progress-fill ${allocBarColor}`}
+                      style={{ width: `${Math.min(allocPct, 100)}%` }}
+                    />
+                  </div>
+                </div>
+                {/* Spending Efficiency */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">{label}</span>
+                    <span className="text-xs font-semibold text-slate-700">{pct}%</span>
+                  </div>
+                  <div className="w-full bg-slate-100 rounded-full h-1.5">
+                    <div
+                      className={`h-1.5 rounded-full animate-progress-fill ${barColor}`}
+                      style={{ width: `${Math.min(pct, 100)}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Budget + Deadline */}
+              <div className="flex items-center justify-between mb-4 text-sm">
+                <div>
+                  <p className="text-xs text-slate-400 uppercase tracking-wide">Budget</p>
+                  <p className="font-semibold text-cyan-900">{formatCurrency(project.fiscalYearBudget)}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-slate-400 uppercase tracking-wide">Deadline</p>
+                  <div className="flex items-center gap-1">
+                    <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                    <p className="font-medium text-slate-700">{formatDate(project.endDate)}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* View Details link */}
+              <button
+                onClick={() => navigate(`/app/projects/${project.id}`)}
+                className="w-full text-center text-sm font-medium text-cyan-600 hover:text-cyan-700 py-2 border-t border-slate-100 flex items-center justify-center gap-1 transition-colors duration-200 cursor-pointer"
+              >
+                {project.status === 'completed' ? 'Archive Report' : 'View Details'}
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          );
+        })}
+
+        {/* Start New Project card */}
         <button
           onClick={() => setShowAddModal(true)}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white text-sm font-medium rounded-xl hover:bg-slate-800 transition-colors"
+          className="border-2 border-dashed border-cyan-300 rounded-2xl p-5 hover:border-cyan-400 hover:bg-cyan-50/50 transition-all duration-200 flex flex-col items-center justify-center min-h-[280px] group cursor-pointer"
         >
-          <Plus className="w-4 h-4" />
-          New Project
+          <div className="w-12 h-12 rounded-full bg-cyan-50 group-hover:bg-cyan-100 flex items-center justify-center mb-3 transition-colors duration-200">
+            <Plus className="w-6 h-6 text-cyan-500 group-hover:text-cyan-600" />
+          </div>
+          <span className="text-sm font-medium text-slate-600 group-hover:text-cyan-700">Start New Project</span>
+          <span className="text-xs text-slate-400 mt-1">
+            {currentFiscalYear?.name ?? 'Current FY'}
+          </span>
         </button>
-      </div>
-
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4 mb-6">
-        {/* Search */}
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search projects, codes, cost centres..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
-          />
-        </div>
-
-        {/* Status Filter Pills */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {(['all', 'active', 'pipeline', 'completed', 'on-hold'] as StatusFilter[]).map((status) => (
-            <button
-              key={status}
-              onClick={() => setStatusFilter(status)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
-                statusFilter === status
-                  ? 'text-white bg-slate-900'
-                  : 'text-slate-600 bg-slate-100 hover:bg-slate-200'
-              }`}
-            >
-              {status === 'all' ? 'All' : status.charAt(0).toUpperCase() + status.slice(1).replace('-', ' ')}
-              {' '}({statusCounts[status]})
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Projects Table */}
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-slate-100">
-                <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                  Project
-                </th>
-                <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                  Funder
-                </th>
-                <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                  Status
-                </th>
-                <th className="px-5 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                  Cash Budget
-                </th>
-                <th className="px-5 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                  In-Kind
-                </th>
-                <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                  Benefits Cap
-                </th>
-                <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                  Timeline
-                </th>
-                <th className="px-5 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filteredProjects.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="px-5 py-12 text-center">
-                    <div className="text-slate-400">
-                      <Search className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                      <p className="text-sm font-medium text-slate-500">No projects found</p>
-                      <p className="text-xs text-slate-400 mt-1">Try adjusting your search or filter</p>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                filteredProjects.map((project) => {
-                  const style = statusStyles[project.status];
-                  const fundingStyle = fundingTypeStyles[project.fundingType];
-                  return (
-                    <tr
-                      key={project.id}
-                      onClick={() => navigate(`/projects/${project.id}`)}
-                      className="hover:bg-slate-50 transition-colors cursor-pointer"
-                    >
-                      <td className="px-5 py-4">
-                        <div>
-                          <div className="text-sm font-medium text-slate-900">{project.name}</div>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-xs text-slate-500">{project.code}</span>
-                            {project.costCentreNumber && (
-                              <>
-                                <span className="text-slate-300">|</span>
-                                <span className="text-xs text-slate-400">{project.costCentreNumber}</span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-5 py-4">
-                        <span className="text-sm text-slate-600">{getFunderName(project.funderId)}</span>
-                      </td>
-                      <td className="px-5 py-4">
-                        <div className="flex flex-col gap-1.5">
-                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${style.bg} ${style.text} w-fit`}>
-                            {project.status.charAt(0).toUpperCase() + project.status.slice(1).replace('-', ' ')}
-                          </span>
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${fundingStyle.bg} ${fundingStyle.text} w-fit`}>
-                            {project.fundingType.charAt(0).toUpperCase() + project.fundingType.slice(1)}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-5 py-4 text-right">
-                        <div>
-                          <div className="text-sm font-semibold text-slate-900">{formatCurrency(project.totalBudget)}</div>
-                          <div className="text-xs text-slate-500">FY: {formatCurrency(project.fiscalYearBudget)}</div>
-                        </div>
-                      </td>
-                      <td className="px-5 py-4 text-right">
-                        <div>
-                          <div className="text-sm font-semibold text-slate-900">{formatCurrency(project.inKindBudget)}</div>
-                          <div className="text-xs text-slate-500">FY: {formatCurrency(project.inKindFiscalYearBudget)}</div>
-                        </div>
-                      </td>
-                      <td className="px-5 py-4">
-                        <div>
-                          <span className="text-sm text-slate-700">{project.benefitsCapPercent}%</span>
-                          <div className="text-xs text-slate-400">
-                            {project.benefitsCapType === 'percentage-of-wages' ? 'of wages' : 'of benefits'}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-5 py-4">
-                        <div className="text-xs text-slate-500">
-                          <div>{formatDate(project.startDate)}</div>
-                          {project.endDate && (
-                            <div className="text-slate-400">to {formatDate(project.endDate)}</div>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-5 py-4">
-                        <div className="flex items-center justify-end gap-1 relative">
-                          {project.fundingAgreementUrl && (
-                            <a
-                              href={project.fundingAgreementUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-                              title="View funding agreement"
-                            >
-                              <ExternalLink className="w-4 h-4 text-slate-400" />
-                            </a>
-                          )}
-                          <button
-                            onClick={(e) => { e.stopPropagation(); openEditModal(project); }}
-                            className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-                            title="Edit project"
-                          >
-                            <Pencil className="w-4 h-4 text-slate-400" />
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); toggleRowMenu(project.id); }}
-                            className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-                          >
-                            <MoreHorizontal className="w-4 h-4 text-slate-400" />
-                          </button>
-
-                          {/* Dropdown menu */}
-                          {expandedRow === project.id && (
-                            <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-10 py-1 min-w-[140px]">
-                              <button
-                                onClick={() => openEditModal(project)}
-                                className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                              >
-                                <Pencil className="w-4 h-4" />
-                                Edit
-                              </button>
-                              <button
-                                onClick={() => openDeleteModal(project)}
-                                className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                                Delete
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Footer */}
-      <div className="mt-4 text-xs text-slate-500">
-        Showing {filteredProjects.length} of {projects.length} projects
       </div>
 
       {/* Add Project Modal */}
@@ -373,10 +349,10 @@ const Projects: React.FC = () => {
       )}
 
       {/* Click outside to close menu */}
-      {expandedRow && (
+      {openMenu && (
         <div
           className="fixed inset-0 z-0"
-          onClick={() => setExpandedRow(null)}
+          onClick={() => setOpenMenu(null)}
         />
       )}
     </div>

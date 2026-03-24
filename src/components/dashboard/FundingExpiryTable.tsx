@@ -48,7 +48,7 @@ const FundingExpiryTable: React.FC<FundingExpiryTableProps> = ({ statuses, forma
   if (statuses.length === 0) {
     return (
       <div className="bg-white rounded-2xl border border-slate-200 p-5">
-        <h3 className="text-base font-semibold text-slate-900 mb-4">Funding Expiry Status</h3>
+        <h3 className="text-base font-semibold text-cyan-900 mb-4">Funding Expiry Status</h3>
         <p className="text-sm text-slate-500 text-center py-8">No active projects</p>
       </div>
     );
@@ -57,7 +57,7 @@ const FundingExpiryTable: React.FC<FundingExpiryTableProps> = ({ statuses, forma
   return (
     <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
       <div className="px-5 py-4 border-b border-slate-100">
-        <h3 className="text-base font-semibold text-slate-900">Funding Expiry Status</h3>
+        <h3 className="text-base font-semibold text-cyan-900">Funding Expiry Status</h3>
         <p className="text-xs text-slate-500 mt-1">Monitor project deadlines, spending, and priorities</p>
       </div>
       <div className="overflow-x-auto">

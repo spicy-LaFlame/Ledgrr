@@ -10,7 +10,7 @@ function downloadWorkbook(wb: XLSX.WorkBook, filename: string): void {
   XLSX.writeFile(wb, filename);
 }
 
-function setCurrencyFormat(ws: XLSX.WorkSheet, row: number, cols: number[], fmt: string = '$#,##0') {
+function setCurrencyFormat(ws: XLSX.WorkSheet, row: number, cols: number[], fmt: string = '$#,##0.00') {
   for (const col of cols) {
     const cell = ws[XLSX.utils.encode_cell({ r: row, c: col })];
     if (cell) cell.z = fmt;

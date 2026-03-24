@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
 import type { FiscalYear, Quarter, Project } from '../../db/schema';
+import { Modal } from '../shared/Modal';
+import { Button } from '../shared/Button';
 
 export type ReportType = 'project-summary' | 'team-allocation' | 'project-status' | 'quarterly-claims';
 
@@ -76,129 +77,118 @@ const ReportConfigModal: React.FC<ReportConfigModalProps> = ({
   const needsProject = reportType === 'project-status' || reportType === 'quarterly-claims';
   const needsQuarter = reportType === 'team-allocation';
 
-  if (!isOpen) return null;
+  const footerContent = (
+    <>
+      <Button variant="secondary" type="button" onClick={onClose}>
+        Cancel
+      </Button>
+      <Button
+        type="submit"
+        form="report-config-form"
+        loading={isGenerating}
+        disabled={isGenerating || (needsProject && !projectId)}
+      >
+        {isGenerating ? 'Generating...' : 'Generate Report'}
+      </Button>
+    </>
+  );
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden">
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-slate-900">
-            {reportTitles[reportType]}
-          </h2>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
-            <X className="w-5 h-5 text-slate-500" />
-          </button>
-        </div>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={reportTitles[reportType]}
+      maxWidth="md"
+      footer={footerContent}
+    >
+      <form id="report-config-form" onSubmit={handleSubmit}>
+        <div className="p-6 space-y-4">
+          {/* Fiscal Year */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Fiscal Year</label>
+            <select
+              value={fiscalYearId}
+              onChange={(e) => setFiscalYearId(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500"
+            >
+              {fiscalYears.map(fy => (
+                <option key={fy.id} value={fy.id}>
+                  FY {fy.name}{fy.isCurrent ? ' (Current)' : ''}
+                </option>
+              ))}
+            </select>
+          </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit}>
-          <div className="p-6 space-y-4">
-            {/* Fiscal Year */}
+          {/* Quarter (Team Allocation only) */}
+          {needsQuarter && (
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Fiscal Year</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Period</label>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setQuarterId('full')}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors cursor-pointer ${
+                    quarterId === 'full'
+                      ? 'text-white bg-cyan-600'
+                      : 'text-slate-600 bg-slate-100 hover:bg-slate-200'
+                  }`}
+                >
+                  Full Year
+                </button>
+                {fyQuarters.map(q => (
+                  <button
+                    key={q.id}
+                    type="button"
+                    onClick={() => setQuarterId(q.id)}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors cursor-pointer ${
+                      quarterId === q.id
+                        ? 'text-white bg-cyan-600'
+                        : 'text-slate-600 bg-slate-100 hover:bg-slate-200'
+                    }`}
+                  >
+                    Q{q.quarterNumber}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Project (Project Status & Quarterly Claims) */}
+          {needsProject && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Project</label>
               <select
-                value={fiscalYearId}
-                onChange={(e) => setFiscalYearId(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+                value={projectId}
+                onChange={(e) => setProjectId(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500"
               >
-                {fiscalYears.map(fy => (
-                  <option key={fy.id} value={fy.id}>
-                    FY {fy.name}{fy.isCurrent ? ' (Current)' : ''}
+                {activeProjects.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.code} — {p.name}
                   </option>
                 ))}
               </select>
             </div>
+          )}
 
-            {/* Quarter (Team Allocation only) */}
-            {needsQuarter && (
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Period</label>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setQuarterId('full')}
-                    className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
-                      quarterId === 'full'
-                        ? 'text-white bg-slate-900'
-                        : 'text-slate-600 bg-slate-100 hover:bg-slate-200'
-                    }`}
-                  >
-                    Full Year
-                  </button>
-                  {fyQuarters.map(q => (
-                    <button
-                      key={q.id}
-                      type="button"
-                      onClick={() => setQuarterId(q.id)}
-                      className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
-                        quarterId === q.id
-                          ? 'text-white bg-slate-900'
-                          : 'text-slate-600 bg-slate-100 hover:bg-slate-200'
-                      }`}
-                    >
-                      Q{q.quarterNumber}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Project (Project Status & Quarterly Claims) */}
-            {needsProject && (
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Project</label>
-                <select
-                  value={projectId}
-                  onChange={(e) => setProjectId(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
-                >
-                  {activeProjects.map(p => (
-                    <option key={p.id} value={p.id}>
-                      {p.code} — {p.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {/* Status Filter (Project Summary only) */}
-            {reportType === 'project-summary' && (
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Status Filter</label>
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
-                >
-                  <option value="all">All Active & Pipeline</option>
-                  <option value="active">Active Only</option>
-                  <option value="pipeline">Pipeline Only</option>
-                </select>
-              </div>
-            )}
-          </div>
-
-          {/* Footer */}
-          <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isGenerating || (needsProject && !projectId)}
-              className="px-4 py-2 text-sm font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isGenerating ? 'Generating...' : 'Generate Report'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+          {/* Status Filter (Project Summary only) */}
+          {reportType === 'project-summary' && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Status Filter</label>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500"
+              >
+                <option value="all">All Active & Pipeline</option>
+                <option value="active">Active Only</option>
+                <option value="pipeline">Pipeline Only</option>
+              </select>
+            </div>
+          )}
+        </div>
+      </form>
+    </Modal>
   );
 };
 

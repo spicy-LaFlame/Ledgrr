@@ -20,7 +20,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   return (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 sm:mb-8">
       <div>
-        <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Overview</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-cyan-900">Overview</h1>
         <p className="text-sm text-slate-500 mt-1">FY {fiscalYear} Budget Tracking</p>
       </div>
       <div className="flex flex-wrap items-center gap-2 sm:gap-3">
@@ -29,7 +29,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
           <select
             value={fiscalYear}
             onChange={(e) => setFiscalYear(e.target.value)}
-            className="appearance-none pl-3.5 pr-10 py-2 sm:py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
+            className="appearance-none pl-3.5 pr-10 py-2 sm:py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500 cursor-pointer"
           >
             <option value="2024-25">FY 2024-25</option>
             <option value="2025-26">FY 2025-26</option>

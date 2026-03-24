@@ -98,6 +98,11 @@ export function getTotalRate(rate: EmployeeRate): number {
   return rate.baseHourlyRate + rate.benefitsRate;
 }
 
+// Round to nearest cent to prevent floating-point drift
+function roundCents(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
 // Calculate cost for hours worked
 export function calculateCost(
   hours: number,
@@ -122,8 +127,38 @@ export function calculateCost(
   const hospitalBenefits = benefitsComponent - fundedBenefits;
 
   return {
-    fundedCost: baseComponent + fundedBenefits,
-    hospitalCovers: hospitalBenefits,
-    totalCost: baseComponent + benefitsComponent,
+    fundedCost: roundCents(baseComponent + fundedBenefits),
+    hospitalCovers: roundCents(hospitalBenefits),
+    totalCost: roundCents(baseComponent + benefitsComponent),
   };
+}
+
+// Reverse-calculate hours from a funded cost amount
+export function calculateHoursFromFundedCost(
+  fundedCost: number,
+  rate: EmployeeRate,
+  benefitsCap: number,
+  capType: BenefitsCapType = 'percentage-of-benefits'
+): number {
+  if (rate.baseHourlyRate === 0 && rate.benefitsRate === 0) return 0;
+
+  let effectiveRate: number;
+
+  if (capType === 'percentage-of-wages') {
+    // fundedCost = hours * baseRate + min(hours * benefitsRate, hours * baseRate * benefitsCap)
+    // If benefitsRate <= baseRate * benefitsCap: effectiveRate = baseRate + benefitsRate
+    // Else: effectiveRate = baseRate + baseRate * benefitsCap = baseRate * (1 + benefitsCap)
+    const maxFundedBenefitsPerHour = rate.baseHourlyRate * benefitsCap;
+    if (rate.benefitsRate <= maxFundedBenefitsPerHour) {
+      effectiveRate = rate.baseHourlyRate + rate.benefitsRate;
+    } else {
+      effectiveRate = rate.baseHourlyRate * (1 + benefitsCap);
+    }
+  } else {
+    // percentage-of-benefits: fundedCost = hours * (baseRate + benefitsRate * benefitsCap)
+    effectiveRate = rate.baseHourlyRate + rate.benefitsRate * benefitsCap;
+  }
+
+  if (effectiveRate === 0) return 0;
+  return roundCents(fundedCost / effectiveRate);
 }

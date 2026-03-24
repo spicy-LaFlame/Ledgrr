@@ -1,13 +1,20 @@
 import { useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Pencil, ExternalLink, DollarSign, Calendar, Building2, Users, Receipt } from 'lucide-react';
+import { ArrowLeft, Pencil, ExternalLink, DollarSign, Calendar, Building2, Users, Receipt, Plus, TableProperties, ClipboardCheck, Trash2 } from 'lucide-react';
 import { useProject, useProjects } from '../hooks/useProjects';
 import { useAllocations, useExpenses, useExpenseCategories, useFiscalPeriods } from '../hooks/useAllocations';
 import { useEmployees, useEmployeeRates, calculateCost } from '../hooks/useEmployees';
 import ProjectFormModal from '../components/projects/ProjectFormModal';
 import type { ProjectFormData } from '../hooks/useProjects';
-import type { PaymentMethod } from '../db/schema';
+import type { SalaryAllocation, Expense, PaymentMethod } from '../db/schema';
 import DocumentUpload from '../components/ai/DocumentUpload';
+import AllocationFormModal from '../components/allocations/AllocationFormModal';
+import type { AllocationFormData } from '../components/allocations/AllocationFormModal';
+import BulkAllocationModal from '../components/allocations/BulkAllocationModal';
+import BulkActualsModal from '../components/allocations/BulkActualsModal';
+import ExpenseFormModal from '../components/expenses/ExpenseFormModal';
+import type { ExpenseFormData } from '../components/expenses/ExpenseFormModal';
+import BulkExpenseModal from '../components/expenses/BulkExpenseModal';
 
 const statusStyles: Record<string, { bg: string; text: string }> = {
   active: { bg: 'bg-emerald-100', text: 'text-emerald-700' },
@@ -17,7 +24,7 @@ const statusStyles: Record<string, { bg: string; text: string }> = {
 };
 
 const fundingTypeStyles: Record<string, { bg: string; text: string }> = {
-  cash: { bg: 'bg-blue-100', text: 'text-blue-700' },
+  cash: { bg: 'bg-cyan-100', text: 'text-cyan-700' },
   'in-kind': { bg: 'bg-purple-100', text: 'text-purple-700' },
   mixed: { bg: 'bg-indigo-100', text: 'text-indigo-700' },
 };
@@ -29,14 +36,7 @@ const paymentMethodLabels: Record<PaymentMethod, { label: string; bg: string; te
   'employee': { label: 'Employee', bg: 'bg-purple-100', text: 'text-purple-700' },
 };
 
-const formatCurrency = (amount: number): string => {
-  return new Intl.NumberFormat('en-CA', {
-    style: 'currency',
-    currency: 'CAD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
-};
+import { formatCurrency } from '../utils/formatters';
 
 const formatDate = (dateString?: string) => {
   if (!dateString) return '—';
@@ -50,15 +50,30 @@ const formatDate = (dateString?: string) => {
 const ProjectDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { project, funder } = useProject(id);
-  const { allocations } = useAllocations({ projectId: id });
-  const { expenses } = useExpenses({ projectId: id });
-  const { funders, updateProject } = useProjects();
-  const { allEmployees } = useEmployees();
+  const { allocations, addAllocation, updateAllocation, deleteAllocation, checkDuplicate, bulkAddAllocations, bulkUpdateActuals } = useAllocations({ projectId: id });
+  const { expenses, addExpense, updateExpense, deleteExpense, bulkAddExpenses } = useExpenses({ projectId: id });
+  const { funders, activeProjects, updateProject } = useProjects();
+  const { employees, allEmployees } = useEmployees();
   const { currentFiscalYear } = useFiscalPeriods();
   const { rates } = useEmployeeRates(undefined, currentFiscalYear?.id);
   const categories = useExpenseCategories();
   const { quarters } = useFiscalPeriods();
   const [showEditModal, setShowEditModal] = useState(false);
+
+  // Allocation modal state
+  const [showAddAllocation, setShowAddAllocation] = useState(false);
+  const [showEditAllocation, setShowEditAllocation] = useState(false);
+  const [showBulkAddAllocation, setShowBulkAddAllocation] = useState(false);
+  const [showBulkActuals, setShowBulkActuals] = useState(false);
+  const [selectedAllocation, setSelectedAllocation] = useState<SalaryAllocation | null>(null);
+  const [deleteConfirmAllocationId, setDeleteConfirmAllocationId] = useState<string | null>(null);
+
+  // Expense modal state
+  const [showAddExpense, setShowAddExpense] = useState(false);
+  const [showEditExpense, setShowEditExpense] = useState(false);
+  const [showBulkAddExpense, setShowBulkAddExpense] = useState(false);
+  const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
+  const [deleteConfirmExpenseId, setDeleteConfirmExpenseId] = useState<string | null>(null);
 
   const getEmployeeName = (empId: string) => allEmployees.find(e => e.id === empId)?.name ?? 'Unknown';
   const getQuarterName = (qId: string) => quarters.find(q => q.id === qId)?.name ?? '—';
@@ -66,14 +81,15 @@ const ProjectDetail: React.FC = () => {
 
   // Allocation cost calculations
   const allocationData = useMemo(() => {
-    if (!project) return { rows: [], totals: { budgetedHours: 0, actualHours: 0, budgetedCost: 0, actualCost: 0 } };
+    const emptyTotals = {
+      cashBudgetedHours: 0, cashActualHours: 0, cashBudgetedCost: 0, cashActualCost: 0,
+      inKindBudgetedHours: 0, inKindActualHours: 0, inKindBudgetedCost: 0, inKindActualCost: 0,
+    };
+    if (!project) return { rows: [], totals: emptyTotals };
 
     const cap = project.benefitsCapPercent / 100;
     const capType = project.benefitsCapType ?? 'percentage-of-benefits';
-    let totalBudgetedHours = 0;
-    let totalActualHours = 0;
-    let totalBudgetedCost = 0;
-    let totalActualCost = 0;
+    const totals = { ...emptyTotals };
 
     const rows = allocations.map(a => {
       const rate = rates.find(r =>
@@ -90,18 +106,22 @@ const ProjectDetail: React.FC = () => {
         }
       }
 
-      totalBudgetedHours += a.budgetedHours;
-      if (a.actualHours !== null) totalActualHours += a.actualHours;
-      totalBudgetedCost += budgetedCost;
-      totalActualCost += actualCost;
+      if (a.isInKind) {
+        totals.inKindBudgetedHours += a.budgetedHours;
+        if (a.actualHours !== null) totals.inKindActualHours += a.actualHours;
+        totals.inKindBudgetedCost += budgetedCost;
+        totals.inKindActualCost += actualCost;
+      } else {
+        totals.cashBudgetedHours += a.budgetedHours;
+        if (a.actualHours !== null) totals.cashActualHours += a.actualHours;
+        totals.cashBudgetedCost += budgetedCost;
+        totals.cashActualCost += actualCost;
+      }
 
       return { ...a, budgetedCost, actualCost };
     });
 
-    return {
-      rows,
-      totals: { budgetedHours: totalBudgetedHours, actualHours: totalActualHours, budgetedCost: totalBudgetedCost, actualCost: totalActualCost },
-    };
+    return { rows, totals };
   }, [allocations, rates, project]);
 
   // Expense totals
@@ -146,10 +166,10 @@ const ProjectDetail: React.FC = () => {
             <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
               <Building2 className="w-8 h-8 text-slate-400" />
             </div>
-            <h2 className="text-xl font-semibold text-slate-900 mb-2">Project Not Found</h2>
+            <h2 className="text-xl font-semibold text-cyan-900 mb-2">Project Not Found</h2>
             <p className="text-sm text-slate-500 mb-4">This project may have been deleted or doesn't exist.</p>
             <Link
-              to="/projects"
+              to="/app/projects"
               className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -169,7 +189,7 @@ const ProjectDetail: React.FC = () => {
       {/* Breadcrumb + Header */}
       <div className="mb-6 sm:mb-8">
         <Link
-          to="/projects"
+          to="/app/projects"
           className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 mb-4"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -177,7 +197,7 @@ const ProjectDetail: React.FC = () => {
         </Link>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex flex-wrap items-center gap-2 sm:gap-4">
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-900">{project.name}</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-cyan-900">{project.name}</h1>
             <div className="flex items-center gap-2">
               <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${style.bg} ${style.text}`}>
                 {project.status.charAt(0).toUpperCase() + project.status.slice(1).replace('-', ' ')}
@@ -189,7 +209,7 @@ const ProjectDetail: React.FC = () => {
           </div>
           <button
             onClick={() => setShowEditModal(true)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white text-sm font-medium rounded-xl hover:bg-slate-800 transition-colors w-fit"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-cyan-600 text-white text-sm font-medium rounded-xl hover:bg-cyan-700 transition-colors w-fit"
           >
             <Pencil className="w-4 h-4" />
             Edit Project
@@ -199,7 +219,7 @@ const ProjectDetail: React.FC = () => {
 
       {/* Metadata Card */}
       <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-6">
-        <h3 className="text-sm font-semibold text-slate-900 mb-4">Project Details</h3>
+        <h3 className="text-sm font-semibold text-cyan-900 mb-4">Project Details</h3>
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-4">
           <div>
             <p className="text-xs font-medium text-slate-500 mb-1">Project Code</p>
@@ -264,35 +284,35 @@ const ProjectDetail: React.FC = () => {
 
       {/* Budget Summary */}
       <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-6">
-        <h3 className="text-sm font-semibold text-slate-900 mb-4">Budget Summary</h3>
+        <h3 className="text-sm font-semibold text-cyan-900 mb-4">Budget Summary</h3>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           <div className="p-4 bg-slate-50 rounded-xl">
             <div className="flex items-center gap-2 mb-2">
               <DollarSign className="w-4 h-4 text-slate-400" />
               <p className="text-xs font-medium text-slate-500">Total Cash Budget</p>
             </div>
-            <p className="text-xl font-bold text-slate-900">{formatCurrency(project.totalBudget)}</p>
+            <p className="text-xl font-bold text-cyan-900">{formatCurrency(project.totalBudget)}</p>
           </div>
           <div className="p-4 bg-slate-50 rounded-xl">
             <div className="flex items-center gap-2 mb-2">
               <Calendar className="w-4 h-4 text-slate-400" />
               <p className="text-xs font-medium text-slate-500">FY Cash Budget</p>
             </div>
-            <p className="text-xl font-bold text-slate-900">{formatCurrency(project.fiscalYearBudget)}</p>
+            <p className="text-xl font-bold text-cyan-900">{formatCurrency(project.fiscalYearBudget)}</p>
           </div>
           <div className="p-4 bg-slate-50 rounded-xl">
             <div className="flex items-center gap-2 mb-2">
               <DollarSign className="w-4 h-4 text-slate-400" />
               <p className="text-xs font-medium text-slate-500">Total In-Kind</p>
             </div>
-            <p className="text-xl font-bold text-slate-900">{formatCurrency(project.inKindBudget)}</p>
+            <p className="text-xl font-bold text-cyan-900">{formatCurrency(project.inKindBudget)}</p>
           </div>
           <div className="p-4 bg-slate-50 rounded-xl">
             <div className="flex items-center gap-2 mb-2">
               <Calendar className="w-4 h-4 text-slate-400" />
               <p className="text-xs font-medium text-slate-500">FY In-Kind</p>
             </div>
-            <p className="text-xl font-bold text-slate-900">{formatCurrency(project.inKindFiscalYearBudget)}</p>
+            <p className="text-xl font-bold text-cyan-900">{formatCurrency(project.inKindFiscalYearBudget)}</p>
           </div>
         </div>
       </div>
@@ -300,33 +320,82 @@ const ProjectDetail: React.FC = () => {
       {/* Salary Allocations */}
       <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden mb-6">
         <div className="px-6 py-4 border-b border-slate-100">
-          <div className="flex items-center gap-2 mb-1">
-            <Users className="w-4 h-4 text-slate-400" />
-            <h3 className="text-sm font-semibold text-slate-900">Salary Allocations</h3>
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <Users className="w-4 h-4 text-slate-400" />
+                <h3 className="text-sm font-semibold text-cyan-900">Salary Allocations</h3>
+              </div>
+              <p className="text-xs text-slate-500">
+                {allocations.length} record{allocations.length !== 1 ? 's' : ''} across all quarters
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowBulkActuals(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+              >
+                <ClipboardCheck className="w-3.5 h-3.5" />
+                Enter Actuals
+              </button>
+              <button
+                onClick={() => setShowBulkAddAllocation(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+              >
+                <TableProperties className="w-3.5 h-3.5" />
+                Bulk Add
+              </button>
+              <button
+                onClick={() => setShowAddAllocation(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-cyan-600 hover:bg-cyan-700 rounded-lg transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Add Allocation
+              </button>
+            </div>
           </div>
-          <p className="text-xs text-slate-500">
-            {allocations.length} record{allocations.length !== 1 ? 's' : ''} across all quarters
-          </p>
         </div>
 
         {allocations.length > 0 && (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 px-6 py-4 bg-slate-50 border-b border-slate-100">
-            <div>
-              <p className="text-xs font-medium text-slate-500">Budgeted Hours</p>
-              <p className="text-lg font-bold text-slate-900">{allocationData.totals.budgetedHours.toLocaleString()}</p>
+          <div className="px-6 py-4 bg-slate-50 border-b border-slate-100 space-y-3">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div>
+                <p className="text-xs font-medium text-slate-500">Cash Budgeted Hours</p>
+                <p className="text-lg font-bold text-cyan-900">{allocationData.totals.cashBudgetedHours.toLocaleString()}</p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-slate-500">Cash Actual Hours</p>
+                <p className="text-lg font-bold text-cyan-900">{allocationData.totals.cashActualHours.toLocaleString()}</p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-slate-500">Cash Budgeted Cost</p>
+                <p className="text-lg font-bold text-cyan-900">{formatCurrency(allocationData.totals.cashBudgetedCost)}</p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-slate-500">Cash Actual Cost</p>
+                <p className="text-lg font-bold text-cyan-900">{formatCurrency(allocationData.totals.cashActualCost)}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-xs font-medium text-slate-500">Actual Hours</p>
-              <p className="text-lg font-bold text-slate-900">{allocationData.totals.actualHours.toLocaleString()}</p>
-            </div>
-            <div>
-              <p className="text-xs font-medium text-slate-500">Budgeted Cost</p>
-              <p className="text-lg font-bold text-slate-900">{formatCurrency(allocationData.totals.budgetedCost)}</p>
-            </div>
-            <div>
-              <p className="text-xs font-medium text-slate-500">Actual Cost</p>
-              <p className="text-lg font-bold text-slate-900">{formatCurrency(allocationData.totals.actualCost)}</p>
-            </div>
+            {(allocationData.totals.inKindBudgetedHours > 0 || allocationData.totals.inKindActualHours > 0) && (
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 pt-2 border-t border-slate-200">
+                <div>
+                  <p className="text-xs font-medium text-purple-600">In-Kind Budgeted Hours</p>
+                  <p className="text-lg font-bold text-purple-700">{allocationData.totals.inKindBudgetedHours.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-purple-600">In-Kind Actual Hours</p>
+                  <p className="text-lg font-bold text-purple-700">{allocationData.totals.inKindActualHours.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-purple-600">In-Kind Budgeted Cost</p>
+                  <p className="text-lg font-bold text-purple-700">{formatCurrency(allocationData.totals.inKindBudgetedCost)}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-purple-600">In-Kind Actual Cost</p>
+                  <p className="text-lg font-bold text-purple-700">{formatCurrency(allocationData.totals.inKindActualCost)}</p>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -346,6 +415,7 @@ const ProjectDetail: React.FC = () => {
                   <th className="px-5 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">Budget Cost</th>
                   <th className="px-5 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">Actual Cost</th>
                   <th className="px-5 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wide">In-Kind</th>
+                  <th className="px-5 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -380,28 +450,83 @@ const ProjectDetail: React.FC = () => {
                         </span>
                       )}
                     </td>
+                    <td className="px-5 py-3 text-right">
+                      {deleteConfirmAllocationId === a.id ? (
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={async () => { await deleteAllocation(a.id); setDeleteConfirmAllocationId(null); }}
+                            className="px-2 py-1 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded transition-colors"
+                          >
+                            Confirm
+                          </button>
+                          <button
+                            onClick={() => setDeleteConfirmAllocationId(null)}
+                            className="px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => { setSelectedAllocation(a); setShowEditAllocation(true); }}
+                            className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors"
+                            title="Edit allocation"
+                          >
+                            <Pencil className="w-3.5 h-3.5 text-slate-400 hover:text-slate-600" />
+                          </button>
+                          <button
+                            onClick={() => setDeleteConfirmAllocationId(a.id)}
+                            className="p-1.5 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Delete allocation"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-slate-400 hover:text-red-500" />
+                          </button>
+                        </div>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
                 <tr className="border-t-2 border-slate-200 bg-slate-50">
                   <td className="px-5 py-3" colSpan={2}>
-                    <span className="text-sm font-semibold text-slate-900">Totals</span>
+                    <span className="text-sm font-semibold text-cyan-900">Cash Totals</span>
                   </td>
                   <td className="px-5 py-3 text-right">
-                    <span className="text-sm font-semibold text-slate-900">{allocationData.totals.budgetedHours.toLocaleString()}</span>
+                    <span className="text-sm font-semibold text-cyan-900">{allocationData.totals.cashBudgetedHours.toLocaleString()}</span>
                   </td>
                   <td className="px-5 py-3 text-right">
-                    <span className="text-sm font-semibold text-slate-900">{allocationData.totals.actualHours.toLocaleString()}</span>
+                    <span className="text-sm font-semibold text-cyan-900">{allocationData.totals.cashActualHours.toLocaleString()}</span>
                   </td>
                   <td className="px-5 py-3 text-right">
-                    <span className="text-sm font-semibold text-slate-900">{formatCurrency(allocationData.totals.budgetedCost)}</span>
+                    <span className="text-sm font-semibold text-cyan-900">{formatCurrency(allocationData.totals.cashBudgetedCost)}</span>
                   </td>
                   <td className="px-5 py-3 text-right">
-                    <span className="text-sm font-semibold text-slate-900">{formatCurrency(allocationData.totals.actualCost)}</span>
+                    <span className="text-sm font-semibold text-cyan-900">{formatCurrency(allocationData.totals.cashActualCost)}</span>
                   </td>
-                  <td className="px-5 py-3"></td>
+                  <td className="px-5 py-3" colSpan={2}></td>
                 </tr>
+                {(allocationData.totals.inKindBudgetedHours > 0 || allocationData.totals.inKindActualHours > 0) && (
+                  <tr className="bg-purple-50">
+                    <td className="px-5 py-3" colSpan={2}>
+                      <span className="text-sm font-semibold text-purple-700">In-Kind Totals</span>
+                    </td>
+                    <td className="px-5 py-3 text-right">
+                      <span className="text-sm font-semibold text-purple-700">{allocationData.totals.inKindBudgetedHours.toLocaleString()}</span>
+                    </td>
+                    <td className="px-5 py-3 text-right">
+                      <span className="text-sm font-semibold text-purple-700">{allocationData.totals.inKindActualHours.toLocaleString()}</span>
+                    </td>
+                    <td className="px-5 py-3 text-right">
+                      <span className="text-sm font-semibold text-purple-700">{formatCurrency(allocationData.totals.inKindBudgetedCost)}</span>
+                    </td>
+                    <td className="px-5 py-3 text-right">
+                      <span className="text-sm font-semibold text-purple-700">{formatCurrency(allocationData.totals.inKindActualCost)}</span>
+                    </td>
+                    <td className="px-5 py-3" colSpan={2}></td>
+                  </tr>
+                )}
               </tfoot>
             </table>
           </div>
@@ -411,24 +536,44 @@ const ProjectDetail: React.FC = () => {
       {/* Expenses */}
       <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-100">
-          <div className="flex items-center gap-2 mb-1">
-            <Receipt className="w-4 h-4 text-slate-400" />
-            <h3 className="text-sm font-semibold text-slate-900">Expenses</h3>
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <Receipt className="w-4 h-4 text-slate-400" />
+                <h3 className="text-sm font-semibold text-cyan-900">Expenses</h3>
+              </div>
+              <p className="text-xs text-slate-500">
+                {expenses.length} expense{expenses.length !== 1 ? 's' : ''} recorded
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowBulkAddExpense(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+              >
+                <TableProperties className="w-3.5 h-3.5" />
+                Bulk Add
+              </button>
+              <button
+                onClick={() => setShowAddExpense(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-cyan-600 hover:bg-cyan-700 rounded-lg transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Add Expense
+              </button>
+            </div>
           </div>
-          <p className="text-xs text-slate-500">
-            {expenses.length} expense{expenses.length !== 1 ? 's' : ''} recorded
-          </p>
         </div>
 
         {expenses.length > 0 && (
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 px-6 py-4 bg-slate-50 border-b border-slate-100">
             <div>
               <p className="text-xs font-medium text-slate-500">Total Budgeted</p>
-              <p className="text-lg font-bold text-slate-900">{formatCurrency(expenseData.totalBudgeted)}</p>
+              <p className="text-lg font-bold text-cyan-900">{formatCurrency(expenseData.totalBudgeted)}</p>
             </div>
             <div>
               <p className="text-xs font-medium text-slate-500">Total Actual</p>
-              <p className="text-lg font-bold text-slate-900">{formatCurrency(expenseData.totalActual)}</p>
+              <p className="text-lg font-bold text-cyan-900">{formatCurrency(expenseData.totalActual)}</p>
             </div>
             <div>
               <p className="text-xs font-medium text-slate-500">Variance</p>
@@ -455,6 +600,7 @@ const ProjectDetail: React.FC = () => {
                   <th className="px-5 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">Actual</th>
                   <th className="px-5 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">Variance</th>
                   <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Payment</th>
+                  <th className="px-5 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -498,6 +644,41 @@ const ProjectDetail: React.FC = () => {
                           <span className="text-xs text-slate-300">—</span>
                         )}
                       </td>
+                      <td className="px-5 py-3 text-right">
+                        {deleteConfirmExpenseId === e.id ? (
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              onClick={async () => { await deleteExpense(e.id); setDeleteConfirmExpenseId(null); }}
+                              className="px-2 py-1 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded transition-colors"
+                            >
+                              Confirm
+                            </button>
+                            <button
+                              onClick={() => setDeleteConfirmExpenseId(null)}
+                              className="px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded transition-colors"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              onClick={() => { setSelectedExpense(e); setShowEditExpense(true); }}
+                              className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors"
+                              title="Edit expense"
+                            >
+                              <Pencil className="w-3.5 h-3.5 text-slate-400 hover:text-slate-600" />
+                            </button>
+                            <button
+                              onClick={() => setDeleteConfirmExpenseId(e.id)}
+                              className="p-1.5 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Delete expense"
+                            >
+                              <Trash2 className="w-3.5 h-3.5 text-slate-400 hover:text-red-500" />
+                            </button>
+                          </div>
+                        )}
+                      </td>
                     </tr>
                   );
                 })}
@@ -505,20 +686,20 @@ const ProjectDetail: React.FC = () => {
               <tfoot>
                 <tr className="border-t-2 border-slate-200 bg-slate-50">
                   <td className="px-5 py-3" colSpan={3}>
-                    <span className="text-sm font-semibold text-slate-900">Totals</span>
+                    <span className="text-sm font-semibold text-cyan-900">Totals</span>
                   </td>
                   <td className="px-5 py-3 text-right">
-                    <span className="text-sm font-semibold text-slate-900">{formatCurrency(expenseData.totalBudgeted)}</span>
+                    <span className="text-sm font-semibold text-cyan-900">{formatCurrency(expenseData.totalBudgeted)}</span>
                   </td>
                   <td className="px-5 py-3 text-right">
-                    <span className="text-sm font-semibold text-slate-900">{formatCurrency(expenseData.totalActual)}</span>
+                    <span className="text-sm font-semibold text-cyan-900">{formatCurrency(expenseData.totalActual)}</span>
                   </td>
                   <td className="px-5 py-3 text-right">
                     <span className={`text-sm font-semibold ${expenseData.variance >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                       {formatCurrency(expenseData.variance)}
                     </span>
                   </td>
-                  <td className="px-5 py-3"></td>
+                  <td className="px-5 py-3" colSpan={2}></td>
                 </tr>
               </tfoot>
             </table>
@@ -539,6 +720,91 @@ const ProjectDetail: React.FC = () => {
         project={project}
         funders={funders}
         mode="edit"
+      />
+
+      {/* Allocation Modals */}
+      <AllocationFormModal
+        isOpen={showAddAllocation}
+        onClose={() => setShowAddAllocation(false)}
+        onSubmit={addAllocation}
+        mode="add"
+        employees={employees}
+        projects={activeProjects}
+        quarters={quarters}
+        rates={rates}
+        currentFiscalYearId={currentFiscalYear?.id ?? ''}
+        checkDuplicate={checkDuplicate}
+      />
+
+      <AllocationFormModal
+        isOpen={showEditAllocation}
+        onClose={() => { setShowEditAllocation(false); setSelectedAllocation(null); }}
+        onSubmit={(data: AllocationFormData) => selectedAllocation ? updateAllocation(selectedAllocation.id, data) : Promise.resolve()}
+        allocation={selectedAllocation ?? undefined}
+        mode="edit"
+        employees={employees}
+        projects={activeProjects}
+        quarters={quarters}
+        rates={rates}
+        currentFiscalYearId={currentFiscalYear?.id ?? ''}
+        checkDuplicate={checkDuplicate}
+      />
+
+      <BulkAllocationModal
+        isOpen={showBulkAddAllocation}
+        onClose={() => setShowBulkAddAllocation(false)}
+        onSubmit={bulkAddAllocations}
+        employees={employees}
+        projects={activeProjects}
+        quarters={quarters}
+        rates={rates}
+        currentFiscalYearId={currentFiscalYear?.id ?? ''}
+        existingAllocations={allocations.map(a => ({ employeeId: a.employeeId, projectId: a.projectId, quarterId: a.quarterId }))}
+      />
+
+      <BulkActualsModal
+        isOpen={showBulkActuals}
+        onClose={() => setShowBulkActuals(false)}
+        onSubmit={bulkUpdateActuals}
+        allocations={allocations}
+        employees={employees}
+        projects={activeProjects}
+        quarters={quarters}
+        rates={rates}
+      />
+
+      {/* Expense Modals */}
+      <ExpenseFormModal
+        isOpen={showAddExpense}
+        onClose={() => setShowAddExpense(false)}
+        onSubmit={addExpense}
+        mode="add"
+        projects={activeProjects}
+        categories={categories}
+        quarters={quarters}
+        currentFiscalYearId={currentFiscalYear?.id ?? ''}
+      />
+
+      <ExpenseFormModal
+        isOpen={showEditExpense}
+        onClose={() => { setShowEditExpense(false); setSelectedExpense(null); }}
+        onSubmit={(data: ExpenseFormData) => selectedExpense ? updateExpense(selectedExpense.id, data) : Promise.resolve()}
+        expense={selectedExpense ?? undefined}
+        mode="edit"
+        projects={activeProjects}
+        categories={categories}
+        quarters={quarters}
+        currentFiscalYearId={currentFiscalYear?.id ?? ''}
+      />
+
+      <BulkExpenseModal
+        isOpen={showBulkAddExpense}
+        onClose={() => setShowBulkAddExpense(false)}
+        onSubmit={bulkAddExpenses}
+        projects={activeProjects}
+        categories={categories}
+        quarters={quarters}
+        currentFiscalYearId={currentFiscalYear?.id ?? ''}
       />
     </div>
   );

@@ -4,6 +4,7 @@ import { FiscalYearSettings } from '../components/settings/FiscalYearSettings';
 import { FunderSettings } from '../components/settings/FunderSettings';
 import { ExpenseCategorySettings } from '../components/settings/ExpenseCategorySettings';
 import { DataManagement } from '../components/settings/DataManagement';
+import { PageHeader } from '../components/shared/PageHeader';
 
 type SettingsTab = 'fiscal-years' | 'funders' | 'categories' | 'data';
 
@@ -19,13 +20,10 @@ const Settings: React.FC = () => {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
-      {/* Header */}
-      <div className="mb-6 sm:mb-8">
-        <h1 className="text-2xl font-bold text-slate-900">Settings</h1>
-        <p className="text-sm text-slate-500 mt-1">
-          Manage lookup data, fiscal years, and database backups.
-        </p>
-      </div>
+      <PageHeader
+        title="Settings"
+        subtitle="Manage lookup data, fiscal years, and database backups."
+      />
 
       {/* Tab navigation */}
       <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
@@ -36,9 +34,9 @@ const Settings: React.FC = () => {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition-colors ${
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition-colors duration-200 cursor-pointer ${
                 isActive
-                  ? 'bg-slate-900 text-white'
+                  ? 'bg-cyan-600 text-white'
                   : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
               }`}
             >

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Plus, Settings2, Download } from 'lucide-react';
 import { useFiscalPeriods } from '../hooks/useAllocations';
 import { useExternalImports, useGLEntries, usePayrollEntries, useGLAccountRules } from '../hooks/useGeneralLedger';
@@ -11,10 +11,13 @@ import ReconciliationTable from '../components/general-ledger/ReconciliationTabl
 import GLAccountRulesModal from '../components/general-ledger/GLAccountRulesModal';
 import { v4 as uuidv4 } from 'uuid';
 
-const formatCurrency = (amount: number): string =>
-  new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
+import { formatCurrency } from '../utils/formatters';
+import { FilterBar, type FilterValues } from '../components/shared/FilterBar';
+import { PageHeader } from '../components/shared/PageHeader';
+import { Button } from '../components/shared/Button';
+import { Card } from '../components/shared/Card';
 
-type StatusFilter = 'all' | ReconciliationRow['status'];
+type StatusFilterType = ReconciliationRow['status'];
 
 const GeneralLedger: React.FC = () => {
   const { currentFiscalYear, fiscalYears } = useFiscalPeriods();
@@ -22,7 +25,10 @@ const GeneralLedger: React.FC = () => {
 
   const [showImportWizard, setShowImportWizard] = useState(false);
   const [showRulesModal, setShowRulesModal] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [filterValues, setFilterValues] = useState<FilterValues>({ status: [] });
+  const handleFilterChange = useCallback((key: string, values: string[]) => {
+    setFilterValues(prev => ({ ...prev, [key]: values }));
+  }, []);
 
   const { imports, addImport, deleteImport } = useExternalImports({ fiscalYearId: fiscalYearId || undefined });
   const { entries: glEntries, addEntries: addGLEntries } = useGLEntries(fiscalYearId || undefined);
@@ -37,9 +43,9 @@ const GeneralLedger: React.FC = () => {
   );
 
   const filteredRows = useMemo(() => {
-    if (statusFilter === 'all') return rows;
-    return rows.filter(r => r.status === statusFilter);
-  }, [rows, statusFilter]);
+    if (filterValues.status.length === 0) return rows;
+    return rows.filter(r => (filterValues.status as StatusFilterType[]).includes(r.status));
+  }, [rows, filterValues.status]);
 
   const filteredSummary = useMemo(() => computeSummary(filteredRows), [filteredRows]);
 
@@ -47,7 +53,6 @@ const GeneralLedger: React.FC = () => {
     const importId = uuidv4();
     const now = new Date().toISOString();
 
-    // Save the import record
     await addImport({
       type: result.type,
       fileName: result.fileName,
@@ -57,7 +62,6 @@ const GeneralLedger: React.FC = () => {
       columnMapping: result.columnMapping,
     });
 
-    // Save the entries with the import ID
     if (result.type === 'general-ledger' && result.glEntries) {
       const entries = result.glEntries.map(e => ({ ...e, importId }));
       await addGLEntries(entries);
@@ -92,8 +96,7 @@ const GeneralLedger: React.FC = () => {
 
     const ws = XLSX.utils.aoa_to_sheet(wsData);
 
-    // Format currency columns
-    const fmt = '$#,##0';
+    const fmt = '$#,##0.00';
     for (let row = 4; row < 4 + filteredRows.length; row++) {
       for (const col of [4, 5, 6]) {
         const cell = ws[XLSX.utils.encode_cell({ r: row, c: col })];
@@ -107,107 +110,94 @@ const GeneralLedger: React.FC = () => {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 sm:mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">General Ledger</h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Import GL & payroll data, reconcile against app-tracked actuals — {currentFiscalYear?.name ?? 'No FY'}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowRulesModal(true)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
-          >
-            <Settings2 className="w-4 h-4" />
-            GL Rules
-          </button>
-          <button
-            onClick={() => setShowImportWizard(true)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white text-sm font-medium rounded-xl hover:bg-slate-800 transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            Import Data
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="General Ledger"
+        subtitle={`Import GL & payroll data, reconcile against app-tracked actuals \u2014 ${currentFiscalYear?.name ?? 'No FY'}`}
+        actions={
+          <>
+            {rows.length > 0 && (
+              <Button variant="secondary" onClick={handleExportReconciliation} icon={<Download className="w-4 h-4" />}>
+                Export
+              </Button>
+            )}
+            <Button variant="secondary" onClick={() => setShowRulesModal(true)} icon={<Settings2 className="w-4 h-4" />}>
+              GL Rules
+            </Button>
+            <Button onClick={() => setShowImportWizard(true)} icon={<Plus className="w-4 h-4" />}>
+              Import Data
+            </Button>
+          </>
+        }
+      />
 
       {/* Import History */}
-      <div className="bg-white rounded-2xl border border-slate-200 mb-6">
+      <Card className="mb-6">
         <div className="px-5 py-4 border-b border-slate-100">
-          <h2 className="text-sm font-semibold text-slate-700">Import History</h2>
+          <h2 className="text-sm font-semibold text-cyan-900">Import History</h2>
         </div>
         <ImportHistoryTable imports={imports} onDelete={deleteImport} />
-      </div>
+      </Card>
 
       {/* Reconciliation Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white rounded-2xl border border-slate-200 p-5">
+        <Card className="p-5">
           <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">External Total</p>
-          <p className="text-2xl font-bold text-slate-900 mt-1">{formatCurrency(summary.externalTotal)}</p>
-        </div>
-        <div className="bg-white rounded-2xl border border-slate-200 p-5">
+          <p className="text-2xl font-bold text-cyan-900 mt-1">{formatCurrency(summary.externalTotal)}</p>
+        </Card>
+        <Card className="p-5">
           <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">App Total</p>
-          <p className="text-2xl font-bold text-slate-900 mt-1">{formatCurrency(summary.appTotal)}</p>
-        </div>
-        <div className="bg-white rounded-2xl border border-slate-200 p-5">
+          <p className="text-2xl font-bold text-cyan-900 mt-1">{formatCurrency(summary.appTotal)}</p>
+        </Card>
+        <Card className="p-5">
           <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Net Variance</p>
           <p className={`text-2xl font-bold mt-1 ${
             Math.abs(summary.netVariance) < 1 ? 'text-emerald-600' : 'text-amber-600'
           }`}>
             {formatCurrency(summary.netVariance)}
           </p>
-        </div>
-        <div className="bg-white rounded-2xl border border-slate-200 p-5">
+        </Card>
+        <Card className="p-5">
           <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Matched</p>
           <p className="text-2xl font-bold text-emerald-600 mt-1">
             {summary.matchedCount}
             <span className="text-sm font-normal text-slate-400 ml-1">/ {summary.totalRows}</span>
           </p>
-        </div>
+        </Card>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-6">
-        <select
-          value={statusFilter}
-          onChange={e => setStatusFilter(e.target.value as StatusFilter)}
-          className="px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-900"
-        >
-          <option value="all">All Statuses</option>
-          <option value="matched">Matched</option>
-          <option value="variance">Variance</option>
-          <option value="external-only">External Only</option>
-          <option value="app-only">App Only</option>
-        </select>
-        {rows.length > 0 && (
-          <button
-            onClick={handleExportReconciliation}
-            className="inline-flex items-center gap-2 px-3 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
-          >
-            <Download className="w-4 h-4" />
-            Export to Excel
-          </button>
-        )}
-      </div>
+      <FilterBar
+        searchValue=""
+        onSearchChange={() => {}}
+        searchPlaceholder="Search cost centres..."
+        filters={[
+          {
+            key: 'status',
+            label: 'Status',
+            placeholder: 'All Statuses',
+            options: [
+              { value: 'matched', label: 'Matched' },
+              { value: 'variance', label: 'Variance' },
+              { value: 'external-only', label: 'External Only' },
+              { value: 'app-only', label: 'App Only' },
+            ],
+          },
+        ]}
+        filterValues={filterValues}
+        onFilterChange={handleFilterChange}
+        resultCount={filteredRows.length}
+        resultLabel={`cost centre${filteredRows.length !== 1 ? 's' : ''}`}
+        totalCount={rows.length}
+      />
 
       {/* Reconciliation Table */}
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+      <Card className="overflow-hidden">
         <ReconciliationTable
           rows={filteredRows}
           glEntries={glEntries}
           payrollEntries={payrollEntries}
         />
-      </div>
+      </Card>
 
-      {/* Footer */}
-      <div className="mt-4 text-xs text-slate-500">
-        {filteredRows.length} cost centre{filteredRows.length !== 1 ? 's' : ''}
-        {statusFilter !== 'all' && ` (filtered from ${rows.length})`}
-      </div>
-
-      {/* Modals */}
       <ImportWizard
         isOpen={showImportWizard}
         onClose={() => setShowImportWizard(false)}

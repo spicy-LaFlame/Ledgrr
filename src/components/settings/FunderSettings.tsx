@@ -94,7 +94,7 @@ export const FunderSettings: React.FC = () => {
         </div>
         <button
           onClick={openAdd}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-cyan-600 hover:bg-cyan-700 rounded-lg transition-colors"
         >
           <Plus className="w-3.5 h-3.5" />
           Add
@@ -111,7 +111,7 @@ export const FunderSettings: React.FC = () => {
                 value={formData.name}
                 onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
                 placeholder="Funder name"
-                className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900"
+                className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
               />
             </div>
             <div>
@@ -121,7 +121,7 @@ export const FunderSettings: React.FC = () => {
                 value={formData.code}
                 onChange={e => setFormData(prev => ({ ...prev, code: e.target.value.toUpperCase() }))}
                 placeholder="e.g., CABHI"
-                className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900"
+                className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
               />
             </div>
             <div>
@@ -132,7 +132,7 @@ export const FunderSettings: React.FC = () => {
                 onChange={e => setFormData(prev => ({ ...prev, benefitCoverageRate: parseFloat(e.target.value) || 0 }))}
                 min="0"
                 max="100"
-                className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900"
+                className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
               />
             </div>
             <div>
@@ -142,7 +142,7 @@ export const FunderSettings: React.FC = () => {
                 value={formData.notes}
                 onChange={e => setFormData(prev => ({ ...prev, notes: e.target.value }))}
                 placeholder="Optional notes"
-                className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900"
+                className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
               />
             </div>
           </div>
@@ -155,7 +155,7 @@ export const FunderSettings: React.FC = () => {
             </button>
             <button
               onClick={handleSave}
-              className="px-3 py-1.5 text-xs font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors"
+              className="px-3 py-1.5 text-xs font-medium text-white bg-cyan-600 hover:bg-cyan-700 rounded-lg transition-colors"
             >
               {editingId ? 'Update' : 'Add Funder'}
             </button>

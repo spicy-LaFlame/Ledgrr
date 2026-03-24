@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { Modal } from '../shared/Modal';
 import type { Claim, ClaimStatus, Project, Quarter } from '../../db/schema';
 
 export type ClaimFormData = Omit<Claim, 'id' | 'createdAt' | 'updatedAt'>;
@@ -124,24 +124,33 @@ const ClaimFormModal: React.FC<ClaimFormModalProps> = ({
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-slate-900">
-            {mode === 'add' ? 'Add Claim' : 'Edit Claim'}
-          </h2>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
-            <X className="w-5 h-5 text-slate-500" />
-          </button>
-        </div>
-
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
-          <div className="p-6 space-y-4">
+    <form onSubmit={handleSubmit}>
+      <Modal
+        isOpen={isOpen}
+        onClose={onClose}
+        title={mode === 'add' ? 'Add Claim' : 'Edit Claim'}
+        maxWidth="lg"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="px-4 py-2 text-sm font-medium text-white bg-cyan-600 hover:bg-cyan-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            >
+              {isSubmitting ? 'Saving...' : mode === 'add' ? 'Add Claim' : 'Save Changes'}
+            </button>
+          </>
+        }
+      >
+        <div className="p-6 space-y-4">
             {/* Project */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Project *</label>
@@ -149,7 +158,7 @@ const ClaimFormModal: React.FC<ClaimFormModalProps> = ({
                 name="projectId"
                 value={formData.projectId}
                 onChange={handleChange}
-                className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 ${
+                className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500 ${
                   errors.projectId ? 'border-red-500' : 'border-slate-300'
                 }`}
               >
@@ -169,7 +178,7 @@ const ClaimFormModal: React.FC<ClaimFormModalProps> = ({
                   name="quarterId"
                   value={formData.quarterId}
                   onChange={handleChange}
-                  className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 ${
+                  className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500 ${
                     errors.quarterId ? 'border-red-500' : 'border-slate-300'
                   }`}
                 >
@@ -186,7 +195,7 @@ const ClaimFormModal: React.FC<ClaimFormModalProps> = ({
                   name="status"
                   value={formData.status}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500"
                 >
                   {statusOptions.map(opt => (
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -205,7 +214,7 @@ const ClaimFormModal: React.FC<ClaimFormModalProps> = ({
                 onChange={handleChange}
                 min="0"
                 step="0.01"
-                className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 ${
+                className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500 ${
                   errors.claimAmount ? 'border-red-500' : 'border-slate-300'
                 }`}
                 placeholder="0.00"
@@ -232,7 +241,7 @@ const ClaimFormModal: React.FC<ClaimFormModalProps> = ({
                   }));
                   if (errors.submittedDate) setErrors(prev => ({ ...prev, submittedDate: '' }));
                 }}
-                className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 ${
+                className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500 ${
                   errors.submittedDate ? 'border-red-500' : 'border-slate-300'
                 }`}
               />
@@ -257,7 +266,7 @@ const ClaimFormModal: React.FC<ClaimFormModalProps> = ({
                     }));
                     if (errors.receivedDate) setErrors(prev => ({ ...prev, receivedDate: '' }));
                   }}
-                  className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 ${
+                  className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500 ${
                     errors.receivedDate ? 'border-red-500' : 'border-slate-300'
                   }`}
                 />
@@ -279,7 +288,7 @@ const ClaimFormModal: React.FC<ClaimFormModalProps> = ({
                   }}
                   min="0"
                   step="0.01"
-                  className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 ${
+                  className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500 ${
                     errors.receivedAmount ? 'border-red-500' : 'border-slate-300'
                   }`}
                   placeholder="Not received"
@@ -296,7 +305,7 @@ const ClaimFormModal: React.FC<ClaimFormModalProps> = ({
                 name="referenceNumber"
                 value={formData.referenceNumber ?? ''}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500"
                 placeholder="e.g., INV-2025-001"
               />
             </div>
@@ -309,32 +318,13 @@ const ClaimFormModal: React.FC<ClaimFormModalProps> = ({
                 value={formData.notes ?? ''}
                 onChange={handleChange}
                 rows={2}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 resize-none"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500 resize-none"
                 placeholder="Any additional details..."
               />
             </div>
           </div>
-
-          {/* Footer */}
-          <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="px-4 py-2 text-sm font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSubmitting ? 'Saving...' : mode === 'add' ? 'Add Claim' : 'Save Changes'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+      </Modal>
+    </form>
   );
 };
 

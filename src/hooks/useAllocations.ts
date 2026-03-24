@@ -78,6 +78,48 @@ export function useAllocations(options?: AllocationFilters) {
     return existing.length > 0;
   };
 
+  const bulkAddAllocations = async (
+    items: Omit<SalaryAllocation, 'id' | 'createdAt' | 'updatedAt'>[]
+  ) => {
+    const now = new Date().toISOString();
+    const records: SalaryAllocation[] = items.map(item => ({
+      ...item,
+      id: uuidv4(),
+      createdAt: now,
+      updatedAt: now,
+    }));
+    await db.transaction('rw', db.salaryAllocations, async () => {
+      await db.salaryAllocations.bulkAdd(records);
+    });
+    return records;
+  };
+
+  const bulkUpdateActuals = async (
+    updates: { id: string; actualHours: number | null }[]
+  ) => {
+    const now = new Date().toISOString();
+    await db.transaction('rw', db.salaryAllocations, async () => {
+      for (const { id, actualHours } of updates) {
+        await db.salaryAllocations.update(id, { actualHours, updatedAt: now });
+      }
+    });
+  };
+
+  const checkBulkDuplicates = async (
+    items: { employeeId: string; projectId: string; fiscalYearId: string; quarterId: string }[]
+  ): Promise<Set<number>> => {
+    const duplicateIndices = new Set<number>();
+    for (let i = 0; i < items.length; i++) {
+      const { employeeId, projectId, fiscalYearId, quarterId } = items[i];
+      const existing = await db.salaryAllocations
+        .where('[employeeId+projectId+fiscalYearId+quarterId]')
+        .equals([employeeId, projectId, fiscalYearId, quarterId])
+        .count();
+      if (existing > 0) duplicateIndices.add(i);
+    }
+    return duplicateIndices;
+  };
+
   return {
     allocations,
     addAllocation,
@@ -85,6 +127,9 @@ export function useAllocations(options?: AllocationFilters) {
     deleteAllocation,
     updateActualHours,
     checkDuplicate,
+    bulkAddAllocations,
+    bulkUpdateActuals,
+    checkBulkDuplicates,
   };
 }
 
@@ -140,11 +185,28 @@ export function useExpenses(options?: ExpenseFilters) {
     await db.expenses.delete(id);
   };
 
+  const bulkAddExpenses = async (
+    items: Omit<Expense, 'id' | 'createdAt' | 'updatedAt'>[]
+  ) => {
+    const now = new Date().toISOString();
+    const records: Expense[] = items.map(item => ({
+      ...item,
+      id: uuidv4(),
+      createdAt: now,
+      updatedAt: now,
+    }));
+    await db.transaction('rw', db.expenses, async () => {
+      await db.expenses.bulkAdd(records);
+    });
+    return records;
+  };
+
   return {
     expenses,
     addExpense,
     updateExpense,
     deleteExpense,
+    bulkAddExpenses,
   };
 }
 
