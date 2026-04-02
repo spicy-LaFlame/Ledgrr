@@ -14,6 +14,8 @@ import { Button } from '../components/shared/Button';
 import { Card } from '../components/shared/Card';
 import { Badge } from '../components/shared/Badge';
 import { EmptyState } from '../components/shared/EmptyState';
+import { usePagination } from '../hooks/usePagination';
+import { Pagination } from '../components/shared/Pagination';
 
 const formatDate = (date: string | null): string => {
   if (!date) return '\u2014';
@@ -115,6 +117,8 @@ const Claims: React.FC = () => {
     data: filteredClaims,
     columns: sortColumns,
   });
+
+  const pagination = usePagination(sortedClaims);
 
   const handleAdd = async (data: ClaimFormData) => {
     await addClaim(data);
@@ -225,7 +229,7 @@ const Claims: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {sortedClaims.length === 0 ? (
+              {pagination.pageItems.length === 0 ? (
                 <tr>
                   <td colSpan={9}>
                     <EmptyState
@@ -238,7 +242,7 @@ const Claims: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                sortedClaims.map((c) => {
+                pagination.pageItems.map((c) => {
                   const badge = statusBadgeMap[c.status];
                   return (
                     <tr key={c.id} className="hover:bg-slate-50 transition-colors duration-150">
@@ -319,6 +323,7 @@ const Claims: React.FC = () => {
             </tbody>
           </table>
         </div>
+        <Pagination pagination={pagination} noun="claims" />
       </Card>
 
       <ClaimFormModal

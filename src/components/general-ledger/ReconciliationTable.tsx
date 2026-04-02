@@ -6,6 +6,8 @@ import ReconciliationDrilldown from './ReconciliationDrilldown';
 import { formatCurrency } from '../../utils/formatters';
 import { useSort, type SortColumnDef } from '../../hooks/useSort';
 import { SortableHeader } from '../shared/SortableHeader';
+import { usePagination } from '../../hooks/usePagination';
+import { Pagination } from '../shared/Pagination';
 
 interface ReconciliationTableProps {
   rows: ReconciliationRow[];
@@ -41,6 +43,8 @@ const ReconciliationTable: React.FC<ReconciliationTableProps> = ({
     columns: sortColumns,
   });
 
+  const pagination = usePagination(sortedRows);
+
   if (rows.length === 0) {
     return (
       <div className="px-5 py-12 text-center">
@@ -67,7 +71,7 @@ const ReconciliationTable: React.FC<ReconciliationTableProps> = ({
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
-          {sortedRows.map(row => {
+          {pagination.pageItems.map(row => {
             const isExpanded = expandedRow === row.costCentre;
             const style = statusStyles[row.status];
             return (
@@ -151,6 +155,7 @@ const ReconciliationTable: React.FC<ReconciliationTableProps> = ({
           })}
         </tbody>
       </table>
+      <Pagination pagination={pagination} noun="cost centres" />
     </div>
   );
 };
