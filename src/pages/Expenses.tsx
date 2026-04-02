@@ -14,6 +14,8 @@ import { Button } from '../components/shared/Button';
 import { Card } from '../components/shared/Card';
 import { Badge } from '../components/shared/Badge';
 import { EmptyState } from '../components/shared/EmptyState';
+import { usePagination } from '../hooks/usePagination';
+import { Pagination } from '../components/shared/Pagination';
 
 const paymentMethodBadges: Record<PaymentMethod, { label: string; variant: 'info' | 'success' | 'warning' | 'purple' }> = {
   'corporate-card': { label: 'Corporate Card', variant: 'info' },
@@ -107,6 +109,8 @@ const Expenses: React.FC = () => {
     data: filteredExpenses,
     columns: sortColumns,
   });
+
+  const pagination = usePagination(sortedExpenses);
 
   const handleAdd = async (data: ExpenseFormData) => {
     await addExpense(data);
@@ -216,7 +220,7 @@ const Expenses: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {sortedExpenses.length === 0 ? (
+              {pagination.pageItems.length === 0 ? (
                 <tr>
                   <td colSpan={9}>
                     <EmptyState
@@ -229,7 +233,7 @@ const Expenses: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                sortedExpenses.map((e) => {
+                pagination.pageItems.map((e) => {
                   const variance = e.actualAmount !== null ? e.budgetedAmount - e.actualAmount : null;
                   const pmBadge = e.paymentMethod ? paymentMethodBadges[e.paymentMethod] : null;
                   return (
@@ -315,6 +319,7 @@ const Expenses: React.FC = () => {
             </tbody>
           </table>
         </div>
+        <Pagination pagination={pagination} noun="expenses" />
       </Card>
 
       <ExpenseFormModal

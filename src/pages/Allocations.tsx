@@ -16,6 +16,8 @@ import { Button } from '../components/shared/Button';
 import { Card } from '../components/shared/Card';
 import { Badge } from '../components/shared/Badge';
 import { EmptyState } from '../components/shared/EmptyState';
+import { usePagination } from '../hooks/usePagination';
+import { Pagination } from '../components/shared/Pagination';
 
 const Allocations: React.FC = () => {
   const { currentFiscalYear, getQuartersForYear } = useFiscalPeriods();
@@ -130,6 +132,8 @@ const Allocations: React.FC = () => {
     data: filteredAllocations,
     columns: sortColumns,
   });
+
+  const pagination = usePagination(sortedAllocations);
 
   const handleAdd = async (data: AllocationFormData) => {
     await addAllocation(data);
@@ -271,7 +275,7 @@ const Allocations: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {sortedAllocations.length === 0 ? (
+              {pagination.pageItems.length === 0 ? (
                 <tr>
                   <td colSpan={9}>
                     <EmptyState
@@ -284,7 +288,7 @@ const Allocations: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                sortedAllocations.map((a) => {
+                pagination.pageItems.map((a) => {
                   const costs = getAllocationCost(a);
                   return (
                     <tr key={a.id} className="hover:bg-slate-50 transition-colors duration-150">
@@ -361,6 +365,7 @@ const Allocations: React.FC = () => {
             </tbody>
           </table>
         </div>
+        <Pagination pagination={pagination} noun="allocations" />
       </Card>
 
       <AllocationFormModal

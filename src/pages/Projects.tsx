@@ -11,6 +11,8 @@ import { FilterBar, type FilterValues } from '../components/shared/FilterBar';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Badge } from '../components/shared/Badge';
 import { formatCurrency, formatDate } from '../utils/formatters';
+import { usePagination } from '../hooks/usePagination';
+import { Pagination } from '../components/shared/Pagination';
 
 const statusBadgeVariant: Record<string, 'success' | 'warning' | 'neutral' | 'danger'> = {
   active: 'success',
@@ -67,13 +69,15 @@ const Projects: React.FC = () => {
     return map;
   }, [spending]);
 
-  const filteredProjects = projects.filter(project => {
+  const filteredProjects = useMemo(() => projects.filter(project => {
     const matchesStatus = filterValues.status.length === 0 || filterValues.status.includes(project.status);
     const matchesSearch = project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       project.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (project.costCentreNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
     return matchesStatus && matchesSearch;
-  });
+  }), [projects, filterValues, searchQuery]);
+
+  const pagination = usePagination(filteredProjects, { defaultPageSize: 9, pageSizeOptions: [6, 9, 12, 24] });
 
   const getFunderName = (funderId: string) => {
     return funders.find(f => f.id === funderId)?.name ?? 'Unknown';
@@ -179,7 +183,7 @@ const Projects: React.FC = () => {
 
       {/* Project Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredProjects.map((project) => {
+        {pagination.pageItems.map((project) => {
           const pct = getSpendingPercent(project);
           const barColor = getProgressBarColor(project);
           const label = progressLabel[project.status] ?? 'Spending Efficiency';
@@ -309,6 +313,11 @@ const Projects: React.FC = () => {
             {currentFiscalYear?.name ?? 'Current FY'}
           </span>
         </button>
+      </div>
+
+      {/* Pagination */}
+      <div className="mt-6 bg-white rounded-2xl border border-slate-200 overflow-hidden">
+        <Pagination pagination={pagination} noun="projects" />
       </div>
 
       {/* Add Project Modal */}

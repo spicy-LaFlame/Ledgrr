@@ -12,6 +12,8 @@ import { EmptyState } from '../components/shared/EmptyState';
 import { useSort, type SortColumnDef } from '../hooks/useSort';
 import { FilterBar, type FilterValues } from '../components/shared/FilterBar';
 import { SortableHeader } from '../components/shared/SortableHeader';
+import { usePagination } from '../hooks/usePagination';
+import { Pagination } from '../components/shared/Pagination';
 
 const statusBadgeMap: Record<string, { variant: 'success' | 'warning' | 'neutral'; label: string }> = {
   active: { variant: 'success', label: 'Active' },
@@ -54,6 +56,8 @@ const Employees: React.FC = () => {
     data: filteredEmployees,
     columns: sortColumns,
   });
+
+  const pagination = usePagination(sortedEmployees);
 
   const statusCounts = {
     active: allEmployees.filter(e => e.status === 'active').length,
@@ -130,7 +134,7 @@ const Employees: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {sortedEmployees.length === 0 ? (
+              {pagination.pageItems.length === 0 ? (
                 <tr>
                   <td colSpan={5}>
                     <EmptyState
@@ -141,7 +145,7 @@ const Employees: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                sortedEmployees.map((emp) => {
+                pagination.pageItems.map((emp) => {
                   const badge = statusBadgeMap[emp.status] ?? statusBadgeMap.active;
                   return (
                     <tr key={emp.id} className="hover:bg-slate-50 transition-colors duration-150">
@@ -190,6 +194,7 @@ const Employees: React.FC = () => {
             </tbody>
           </table>
         </div>
+        <Pagination pagination={pagination} noun="employees" />
       </Card>
 
       <EmployeeFormModal
